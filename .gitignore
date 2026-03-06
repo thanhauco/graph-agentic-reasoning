@@ -7,9 +7,7 @@ __pycache__/
 build/
 dist/
 
-# Data / index artifacts
-data/incidents.json
-data/index/
+# Data / index artifacts (binaries only; incidents.json + communities.json kept for reproducibility)
 *.pickle
 *.npz
 
@@ -17,6 +15,7 @@ data/index/
 node_modules/
 frontend/dist/
 frontend/.vite/
+*.tsbuildinfo
 
 # OS
 .DS_Store
