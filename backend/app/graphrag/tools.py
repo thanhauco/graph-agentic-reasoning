@@ -13,8 +13,10 @@ from app.state import AppState
 
 
 def make_tools(store: AppState) -> dict[str, dict[str, Any]]:
-    def _local(q: str, top_k: int = 10) -> dict[str, Any]:
-        return retriever.local_search(store, q, top_k=top_k).to_dict()
+    def _local(q: str, top_k: int = 10, **filters: Any) -> dict[str, Any]:
+        allowed = {"service", "region", "team", "rootCause", "status", "severity", "start", "end"}
+        clean = {k: v for k, v in filters.items() if k in allowed and v not in (None, "")}
+        return retriever.local_search(store, q, top_k=top_k, **clean).to_dict()
 
     def _global(q: str, top_k: int = 5) -> dict[str, Any]:
         return retriever.global_search(store, q, top_k=top_k).to_dict()
@@ -39,8 +41,8 @@ def make_tools(store: AppState) -> dict[str, dict[str, Any]]:
     return {
         "local_search": {
             "fn": _local,
-            "description": "Entity-anchored search over the incident knowledge graph. Best for specific services, regions, teams, or root causes.",
-            "args": {"q": "string", "top_k": "int (default 10)"},
+            "description": "Entity-anchored search with optional structured filters (service, region, team, rootCause, status, severity, start, end).",
+            "args": {"q": "string", "top_k": "int (default 10)", "service": "string?", "region": "string?", "rootCause": "string?", "severity": "int?", "start": "ISO?", "end": "ISO?"},
         },
         "global_search": {
             "fn": _global,
