@@ -34,6 +34,21 @@ _CLUSTER_WORDS = ("cluster", "storm", "cascade", "outage", "wave", "incident sur
 _SUMMARY_WORDS = ("summarize", "summary", "overall", "trend", "trends", "themes", "overview", "executive")
 _LIST_WORDS = ("list", "show", "which", "what incidents", "top", "most", "all")
 _LOOKUP_WORDS = ("details", "detail", "look up", "pull", "fetch", "tell me about", "what happened in")
+_MULTIHOP_WORDS = (
+    "related to", "similar to", "like this", "like inc", "recurring", "repeat",
+    "why does this keep", "root cause pattern", "pattern", "linked to",
+)
+_COMPARE_WORDS = (" vs ", "versus", "compare", "compared to", "difference between", "vs.")
+_PATH_WORDS = (
+    "how are", "connected", "connection between", "path between", "linked between",
+    "relationship between", "related via",
+)
+_COOCCUR_WORDS = (
+    "fails alongside", "fail alongside", "fails with", "fail together", "fail with",
+    "co-occur", "cooccur", "alongside",
+    "along with", "together with", "depends on", "dependencies of", "dependency of",
+    "most often fail", "often fail",
+)
 
 _SEV_RE = re.compile(r"\bsev(?:erity)?\s*[- ]?\s*([0-4])\b", re.IGNORECASE)
 _INC_RE = re.compile(r"\bINC-2026-\d{4}\b", re.IGNORECASE)
@@ -54,6 +69,12 @@ class GraphQuery:
     startIso: str | None = None
     endIso: str | None = None
     keywords: list[str] = field(default_factory=list)
+    # For multi-hop / compare / path intents:
+    anchorId: str | None = None
+    compareLeft: str | None = None
+    compareRight: str | None = None
+    pathSrc: str | None = None
+    pathDst: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -61,7 +82,8 @@ class GraphQuery:
 
     def describe(self) -> str:
         parts: list[str] = [f"intent={self.intent}"]
-        for k in ("incidentId", "service", "region", "team", "rootCause", "status", "severity"):
+        for k in ("incidentId", "service", "region", "team", "rootCause", "status", "severity",
+                  "anchorId", "compareLeft", "compareRight", "pathSrc", "pathDst"):
             v = getattr(self, k)
             if v is not None:
                 parts.append(f"{k}={v}")
@@ -185,12 +207,20 @@ def _parse_time(ql: str) -> tuple[str | None, str | None]:
 
 
 def _detect_intent(ql: str, has_id: bool) -> str:
-    if has_id:
-        return "lookup"
+    if any(w in ql for w in _COMPARE_WORDS):
+        return "compare"
+    if any(w in ql for w in _PATH_WORDS):
+        return "path"
+    if any(w in ql for w in _COOCCUR_WORDS):
+        return "cooccur"
+    if any(w in ql for w in _MULTIHOP_WORDS):
+        return "multi_hop"
     if any(w in ql for w in _CLUSTER_WORDS):
         return "cluster"
     if any(w in ql for w in _SUMMARY_WORDS):
         return "summarize"
+    if has_id:
+        return "lookup"
     if any(w in ql for w in _LOOKUP_WORDS):
         return "lookup"
     if any(w in ql for w in _LIST_WORDS):
@@ -275,6 +305,38 @@ def parse_query(question: str, store: AppState) -> GraphQuery:
     keywords = [w for w in re.findall(r"[a-zA-Z][a-zA-Z0-9\-]{2,}", stripped)
                 if w not in _STOPWORDS][:8]
 
+    # ---- multi-hop / compare / path extraction ----
+    anchor_id = incident_id if intent == "multi_hop" else None
+    compare_left = compare_right = path_src = path_dst = None
+
+    all_named = vocab["services"] + vocab["regions"] + vocab["teams"] + vocab["causes"]
+
+    def _find_all_named(text: str) -> list[str]:
+        found: list[tuple[int, str]] = []
+        for v in all_named:
+            m = re.search(rf"\b{re.escape(v.lower())}\b", text)
+            if m:
+                found.append((m.start(), v))
+        # Also honor service aliases.
+        for alias, canonical in _SERVICE_ALIASES.items():
+            m = re.search(rf"\b{re.escape(alias)}\b", text)
+            if m:
+                found.append((m.start(), canonical))
+        # Dedup preserving earliest position.
+        seen: dict[str, int] = {}
+        for pos, v in found:
+            seen.setdefault(v, pos)
+        return sorted(seen, key=seen.get)  # type: ignore[arg-type]
+
+    if intent == "compare":
+        names = _find_all_named(ql)
+        if len(names) >= 2:
+            compare_left, compare_right = names[0], names[1]
+    elif intent == "path":
+        names = _find_all_named(ql)
+        if len(names) >= 2:
+            path_src, path_dst = names[0], names[1]
+
     return GraphQuery(
         question=question,
         intent=intent,
@@ -288,6 +350,11 @@ def parse_query(question: str, store: AppState) -> GraphQuery:
         startIso=start,
         endIso=end,
         keywords=keywords,
+        anchorId=anchor_id,
+        compareLeft=compare_left,
+        compareRight=compare_right,
+        pathSrc=path_src,
+        pathDst=path_dst,
     )
 
 
