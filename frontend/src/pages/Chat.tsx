@@ -6,11 +6,37 @@ import AgentTrace from "@/components/AgentTrace";
 import { streamChat, type AgentEvent } from "@/lib/api";
 import { Badge, Button, Card, CardContent } from "@/components/ui";
 
-const EXAMPLES = [
-  "What caused the March 2026 Front Door outage cluster?",
-  "Top 5 services by Sev0-1 incidents in EU regions",
-  "Which teams own the most recurrent Cosmos DB throttling incidents?",
-  "Summarize the January 2026 Azure OpenAI capacity storm",
+const DEMO_QUERIES: { group: string; items: string[] }[] = [
+  {
+    group: "Lookup & filter",
+    items: [
+      "Tell me everything about INC-2026-0137.",
+      "List all Sev1 Front Door certificate incidents in Q1 2026.",
+    ],
+  },
+  {
+    group: "Multi-hop similarity",
+    items: [
+      "Show incidents similar to INC-2026-0050 and explain the pattern.",
+      "Find incidents related to INC-2026-0137 — what pattern do they share?",
+    ],
+  },
+  {
+    group: "Cross-entity reasoning",
+    items: [
+      "Compare Front Door vs API Management incidents this year.",
+      "What services most often fail alongside Azure OpenAI?",
+      "How are Cosmos DB and AKS connected in the knowledge graph?",
+    ],
+  },
+  {
+    group: "Cluster & executive",
+    items: [
+      "Was there an incident storm in March 2026? What was the shared root cause?",
+      "Which regions had a cascade of Networking or DNS failures, and which teams own them?",
+      "Give me an executive overview of the top Azure reliability themes across 2026 with incident citations.",
+    ],
+  },
 ];
 
 type Message = {
@@ -106,19 +132,28 @@ export default function Chat() {
 
         <div className="flex-1 overflow-auto px-6 py-5 space-y-4 scrollbar-thin">
           {messages.length === 0 && (
-            <div className="space-y-3">
-              <div className="text-sm text-muted-foreground">Try an example:</div>
-              <div className="grid grid-cols-1 gap-2">
-                {EXAMPLES.map((ex) => (
-                  <button
-                    key={ex}
-                    onClick={() => send(ex)}
-                    className="text-left rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
-                  >
-                    {ex}
-                  </button>
-                ))}
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                10 demo queries showcasing multi-hop graph reasoning — click any to run:
               </div>
+              {DEMO_QUERIES.map((section) => (
+                <div key={section.group} className="space-y-1.5">
+                  <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
+                    {section.group}
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {section.items.map((ex) => (
+                      <button
+                        key={ex}
+                        onClick={() => send(ex)}
+                        className="text-left rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50 hover:border-primary/40 transition-colors"
+                      >
+                        {ex}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           {messages.map((m, i) => (
