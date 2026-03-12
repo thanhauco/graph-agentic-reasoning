@@ -28,6 +28,25 @@ async def lifespan(app: FastAPI):
         app.state.store.graph.number_of_edges(),
         len(app.state.store.communities),
     )
+    if settings.graph_backend.lower() == "memgraph":
+        try:
+            from app.graphdb import get_client
+            from app.graphdb.loader import count_graph, load_graph
+
+            client = get_client()
+            if client.ping():
+                counts = count_graph(client)
+                if counts["nodes"] == 0 and app.state.store.graph.number_of_nodes() > 0:
+                    log.info("Memgraph empty — loading %d nodes from local index",
+                             app.state.store.graph.number_of_nodes())
+                    load_graph(client, app.state.store.graph, wipe=False)
+                    counts = count_graph(client)
+                log.info("Memgraph reachable: %s nodes / %s edges", counts["nodes"], counts["edges"])
+            else:
+                log.warning("Memgraph configured but unreachable at %s — falling back to NetworkX",
+                            settings.memgraph_url)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Memgraph init failed: %s — falling back to NetworkX", e)
     yield
 
 
@@ -49,7 +68,13 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     def health() -> dict:
-        return {"ok": True, "service": "icm-graphrag"}
+        from app.graphdb import is_memgraph_enabled
+        return {
+            "ok": True,
+            "service": "icm-graphrag",
+            "graphBackend": settings.graph_backend,
+            "memgraphReachable": is_memgraph_enabled(),
+        }
 
     app.include_router(graph_routes.router, prefix="/api")
     app.include_router(chat_routes.router, prefix="/api")

@@ -26,9 +26,22 @@ class Settings(BaseSettings):
     random_seed: int = 2026
     use_llm_for_index: bool = True
 
+    # Graph database backend.
+    # - "networkx": in-process NetworkX (zero-infra, pickle on disk).
+    # - "neo4j":    Bolt-connected Neo4j 5 (Cypher-native reasoning).
+    graph_backend: str = "networkx"
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "neo4jlocal"
+    neo4j_database: str = "neo4j"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def use_neo4j(self) -> bool:
+        return self.graph_backend.lower() == "neo4j"
 
     @property
     def data_path(self) -> Path:
