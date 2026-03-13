@@ -49,7 +49,8 @@ def main() -> int:
             return 0
 
     log.info("Pushing graph into Memgraph (wipe=%s) ...", not args.no_wipe)
-    stats = load_graph(client, store.graph, wipe=not args.no_wipe)
+    stats = load_graph(client, store.graph, wipe=not args.no_wipe,
+                       communities=getattr(store, "communities", None))
     for k, v in stats.items():
         log.info("  %-28s %d", k, v)
     after = count_graph(client)

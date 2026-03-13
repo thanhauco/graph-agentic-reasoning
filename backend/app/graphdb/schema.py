@@ -15,6 +15,9 @@ SCHEMA_STATEMENTS: list[str] = [
     "CREATE CONSTRAINT ON (n:Region) ASSERT n.name IS UNIQUE;",
     "CREATE CONSTRAINT ON (n:Team) ASSERT n.name IS UNIQUE;",
     "CREATE CONSTRAINT ON (n:RootCauseCategory) ASSERT n.name IS UNIQUE;",
+    "CREATE CONSTRAINT ON (n:Owner) ASSERT n.name IS UNIQUE;",
+    "CREATE CONSTRAINT ON (n:Component) ASSERT n.name IS UNIQUE;",
+    "CREATE CONSTRAINT ON (n:Mitigation) ASSERT n.name IS UNIQUE;",
     "CREATE CONSTRAINT ON (n:Community) ASSERT n.communityId IS UNIQUE;",
     # Label-property indexes for fast lookups.
     "CREATE INDEX ON :Incident(incidentId);",
@@ -26,6 +29,9 @@ SCHEMA_STATEMENTS: list[str] = [
     "CREATE INDEX ON :Region(name);",
     "CREATE INDEX ON :Team(name);",
     "CREATE INDEX ON :RootCauseCategory(name);",
+    "CREATE INDEX ON :Owner(name);",
+    "CREATE INDEX ON :Component(name);",
+    "CREATE INDEX ON :Mitigation(name);",
     "CREATE INDEX ON :Community(communityId);",
 ]
 

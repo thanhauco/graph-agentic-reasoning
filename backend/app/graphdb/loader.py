@@ -1,9 +1,4 @@
-"""Load the NetworkX-built KG into Memgraph via Cypher UNWIND batches.
-
-The in-process index is still authoritative for embeddings/communities; this
-layer just mirrors the structural graph (incidents + entity nodes + typed
-relationships) into Memgraph so the agent can run Cypher traversals.
-"""
+"""Load the NetworkX-built KG into Memgraph via Cypher UNWIND batches."""
 
 from __future__ import annotations
 
@@ -17,140 +12,135 @@ from app.graphdb.schema import apply_schema, drop_all
 
 log = logging.getLogger("icm.graphdb.loader")
 
-
-_ENTITY_LABELS = {
-    "Incident": "Incident",
-    "Service": "Service",
-    "Region": "Region",
-    "Team": "Team",
-    "RootCauseCategory": "RootCauseCategory",
-    "Community": "Community",
-}
-
-# Relation -> (source label, target label, cypher relation type)
-_RELATION_MAP = {
-    "affects": ("Incident", "Service", "AFFECTS"),
-    "in_region": ("Incident", "Region", "IN_REGION"),
-    "owned_by": ("Incident", "Team", "OWNED_BY"),
-    "caused_by": ("Incident", "RootCauseCategory", "CAUSED_BY"),
-    "in_community": ("Incident", "Community", "IN_COMMUNITY"),
-    "hosted_in": ("Service", "Region", "HOSTED_IN"),
-    "owns": ("Team", "Service", "OWNS"),
-}
+_ID_PROPERTY = {"Incident": "incidentId", "Community": "communityId"}
 
 
-def _node_rows_by_label(g: nx.MultiDiGraph) -> dict[str, list[dict[str, Any]]]:
-    buckets: dict[str, list[dict[str, Any]]] = {lbl: [] for lbl in _ENTITY_LABELS}
+def _id_prop(label):
+    return _ID_PROPERTY.get(label, "name")
+
+
+def _node_props(label, node_id, attrs):
+    if label == "Incident":
+        return {
+            "incidentId": node_id,
+            "title": attrs.get("title"),
+            "severity": attrs.get("severity"),
+            "status": attrs.get("status"),
+            "service": attrs.get("service"),
+            "region": attrs.get("region"),
+            "team": attrs.get("team"),
+            "rootCauseCategory": attrs.get("rootCauseCategory"),
+            "mitigation": attrs.get("mitigation"),
+            "createdAt": attrs.get("createdAt"),
+            "impactedCustomers": attrs.get("impactedCustomers"),
+        }
+    if label == "Community":
+        return {"communityId": node_id, "size": attrs.get("size"), "summary": attrs.get("summary")}
+    return {"name": attrs.get("label") or node_id}
+
+
+def _bucket_nodes(g):
+    buckets = {}
     for n, d in g.nodes(data=True):
-        t = d.get("type")
-        if t not in _ENTITY_LABELS:
+        label = d.get("type")
+        if not label:
             continue
-        row: dict[str, Any] = {"id": n}
-        if t == "Incident":
-            row.update({
-                "incidentId": n,
-                "title": d.get("title"),
-                "severity": d.get("severity"),
-                "status": d.get("status"),
-                "service": d.get("service"),
-                "region": d.get("region"),
-                "team": d.get("team"),
-                "rootCauseCategory": d.get("rootCauseCategory"),
-                "mitigation": d.get("mitigation"),
-                "createdAt": d.get("createdAt"),
-                "impactedCustomers": d.get("impactedCustomers"),
-            })
-        elif t == "Community":
-            row.update({
-                "communityId": n,
-                "size": d.get("size"),
-                "summary": d.get("summary"),
-            })
-        else:
-            row.update({"name": d.get("label") or n})
-        buckets[t].append(row)
+        buckets.setdefault(label, []).append(_node_props(label, n, d))
     return buckets
 
 
-def _edge_rows_by_rel(g: nx.MultiDiGraph) -> dict[str, list[dict[str, Any]]]:
-    buckets: dict[str, list[dict[str, Any]]] = {k: [] for k in _RELATION_MAP}
-    seen: set[tuple[str, str, str]] = set()
+def _bucket_edges(g):
+    buckets = {}
+    seen = set()
     for u, v, data in g.edges(data=True):
         rel = data.get("relation")
-        if rel not in _RELATION_MAP:
+        if not rel:
             continue
-        key = (rel, u, v)
-        if key in seen:
+        u_attrs = g.nodes[u]
+        v_attrs = g.nodes[v]
+        u_label = u_attrs.get("type")
+        v_label = v_attrs.get("type")
+        if not u_label or not v_label:
             continue
-        seen.add(key)
-        buckets[rel].append({"src": u, "dst": v})
+        u_key = u if u_label in _ID_PROPERTY else (u_attrs.get("label") or u)
+        v_key = v if v_label in _ID_PROPERTY else (v_attrs.get("label") or v)
+        sig = (rel, str(u_key), str(v_key))
+        if sig in seen:
+            continue
+        seen.add(sig)
+        buckets.setdefault((u_label, v_label, rel), []).append({"src": u_key, "dst": v_key})
     return buckets
 
 
-_MERGE_TEMPLATES = {
-    "Incident": """
-        UNWIND $rows AS row
-        MERGE (n:Incident {incidentId: row.incidentId})
-        SET n.title = row.title,
-            n.severity = row.severity,
-            n.status = row.status,
-            n.service = row.service,
-            n.region = row.region,
-            n.team = row.team,
-            n.rootCauseCategory = row.rootCauseCategory,
-            n.mitigation = row.mitigation,
-            n.createdAt = row.createdAt,
-            n.impactedCustomers = row.impactedCustomers
-    """,
-    "Service": "UNWIND $rows AS row MERGE (n:Service {name: row.name})",
-    "Region": "UNWIND $rows AS row MERGE (n:Region {name: row.name})",
-    "Team": "UNWIND $rows AS row MERGE (n:Team {name: row.name})",
-    "RootCauseCategory": "UNWIND $rows AS row MERGE (n:RootCauseCategory {name: row.name})",
-    "Community": """
-        UNWIND $rows AS row
-        MERGE (n:Community {communityId: row.communityId})
-        SET n.size = row.size, n.summary = row.summary
-    """,
-}
+def _node_merge_cypher(label):
+    if label == "Incident":
+        return (
+            "UNWIND $rows AS row "
+            "MERGE (n:Incident {incidentId: row.incidentId}) "
+            "SET n.title = row.title, n.severity = row.severity, n.status = row.status, "
+            "n.service = row.service, n.region = row.region, n.team = row.team, "
+            "n.rootCauseCategory = row.rootCauseCategory, n.mitigation = row.mitigation, "
+            "n.createdAt = row.createdAt, n.impactedCustomers = row.impactedCustomers"
+        )
+    if label == "Community":
+        return (
+            "UNWIND $rows AS row "
+            "MERGE (n:Community {communityId: row.communityId}) "
+            "SET n.size = row.size, n.summary = row.summary"
+        )
+    return f"UNWIND $rows AS row MERGE (n:{label} {{name: row.name}})"
 
 
-def _edge_cypher(rel_key: str) -> str:
-    src_lbl, dst_lbl, rel_type = _RELATION_MAP[rel_key]
-    src_key = "incidentId" if src_lbl == "Incident" else ("communityId" if src_lbl == "Community" else "name")
-    dst_key = "incidentId" if dst_lbl == "Incident" else ("communityId" if dst_lbl == "Community" else "name")
+def _edge_merge_cypher(src_label, dst_label, rel):
+    src_key = _id_prop(src_label)
+    dst_key = _id_prop(dst_label)
     return (
         f"UNWIND $rows AS row "
-        f"MATCH (a:{src_lbl} {{{src_key}: row.src}}), (b:{dst_lbl} {{{dst_key}: row.dst}}) "
-        f"MERGE (a)-[:{rel_type}]->(b)"
+        f"MATCH (a:{src_label} {{{src_key}: row.src}}), (b:{dst_label} {{{dst_key}: row.dst}}) "
+        f"MERGE (a)-[:{rel}]->(b)"
     )
 
 
-def load_graph(client: MemgraphClient, g: nx.MultiDiGraph, *, wipe: bool = True) -> dict[str, int]:
-    """Mirror the NetworkX graph into Memgraph. Returns counts per kind."""
+def _add_communities(communities, buckets):
+    if not communities:
+        return []
+    buckets.setdefault("Community", []).extend([
+        {"communityId": c["communityId"], "size": c.get("size"), "summary": c.get("summary")}
+        for c in communities
+    ])
+    edges = []
+    for c in communities:
+        cid = c["communityId"]
+        for iid in c.get("incidentIds", []) or []:
+            edges.append({"src": iid, "dst": cid})
+    return edges
+
+
+def load_graph(client, g, *, wipe=True, communities=None):
     if wipe:
         drop_all(client)
     apply_schema(client)
-
-    stats: dict[str, int] = {}
-
-    node_buckets = _node_rows_by_label(g)
+    stats = {}
+    node_buckets = _bucket_nodes(g)
+    community_edges = _add_communities(communities, node_buckets)
     for label, rows in node_buckets.items():
         if not rows:
             continue
-        n = client.write_many(_MERGE_TEMPLATES[label], rows)
+        n = client.write_many(_node_merge_cypher(label), rows)
         stats[f"nodes:{label}"] = n
-
-    edge_buckets = _edge_rows_by_rel(g)
-    for rel_key, rows in edge_buckets.items():
+    edge_buckets = _bucket_edges(g)
+    for (src_label, dst_label, rel), rows in edge_buckets.items():
         if not rows:
             continue
-        n = client.write_many(_edge_cypher(rel_key), rows)
-        stats[f"edges:{rel_key}"] = n
-
+        n = client.write_many(_edge_merge_cypher(src_label, dst_label, rel), rows)
+        stats[f"edges:{src_label}-[{rel}]->{dst_label}"] = n
+    if community_edges:
+        n = client.write_many(_edge_merge_cypher("Incident", "Community", "IN_COMMUNITY"), community_edges)
+        stats["edges:Incident-[IN_COMMUNITY]->Community"] = n
     return stats
 
 
-def count_graph(client: MemgraphClient) -> dict[str, int]:
+def count_graph(client):
     rows = client.read("MATCH (n) RETURN count(n) AS c")
     nodes = rows[0]["c"] if rows else 0
     rows = client.read("MATCH ()-[r]->() RETURN count(r) AS c")
