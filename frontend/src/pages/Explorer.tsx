@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import {
@@ -16,11 +16,13 @@ export default function Explorer() {
   const [service, setService] = useState("");
   const [region, setRegion] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [limit, setLimit] = useState(100);
 
   const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: api.stats });
-  const { data: graph, isLoading } = useQuery({
-    queryKey: ["graph", service, region],
-    queryFn: () => api.graph({ service: service || undefined, region: region || undefined, limit_incidents: 250 }),
+  const { data: graph, isLoading, isFetching } = useQuery({
+    queryKey: ["graph", service, region, limit],
+    queryFn: () => api.graph({ service: service || undefined, region: region || undefined, limit_incidents: limit }),
+    placeholderData: keepPreviousData,
   });
   const { data: neighbors } = useQuery({
     queryKey: ["neighbors", selected],
@@ -63,6 +65,23 @@ export default function Explorer() {
             ))}
           </Select>
         </div>
+      </div>
+
+      <div className="flex items-center gap-3 px-6 py-2 border-b border-slate-200 bg-white">
+        <span className="text-xs font-medium text-slate-700 whitespace-nowrap">Incidents shown</span>
+        <input
+          type="range"
+          min={50}
+          max={500}
+          step={50}
+          value={limit}
+          onChange={(e) => setLimit(Number(e.target.value))}
+          className="flex-1 max-w-xl accent-primary"
+        />
+        <span className="text-xs font-mono text-slate-700 w-28 text-right">
+          {graph?.incidents ?? limit} / {graph?.totalIncidents ?? "…"}
+          {isFetching && <span className="ml-2 text-muted-foreground">loading…</span>}
+        </span>
       </div>
 
       <div className="flex-1 grid grid-cols-[1fr_360px] gap-4 p-4 min-h-0">

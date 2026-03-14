@@ -72,7 +72,7 @@ export const api = {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== "") qs.set(k, String(v));
     });
-    return j<{ nodes: GraphNode[]; edges: GraphEdge[]; incidents: number }>(
+    return j<{ nodes: GraphNode[]; edges: GraphEdge[]; incidents: number; totalIncidents?: number }>(
       `/graph?${qs.toString()}`,
     );
   },

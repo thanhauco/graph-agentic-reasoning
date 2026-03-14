@@ -64,7 +64,7 @@ def incident(req: Request, incident_id: str) -> dict[str, Any]:
 @router.get("/graph")
 def graph(
     req: Request,
-    limit_incidents: int = Query(400, le=500),
+    limit_incidents: int = Query(100, ge=10, le=500),
     service: str | None = None,
     region: str | None = None,
 ) -> dict[str, Any]:
@@ -72,12 +72,19 @@ def graph(
     g = store.graph
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
-    incident_nodes = [
+    candidates = [
         n for n, d in g.nodes(data=True)
         if d.get("type") == "Incident"
         and (not service or d.get("service") == service)
         and (not region or d.get("region") == region)
-    ][:limit_incidents]
+    ]
+    # Rank "main" incidents first: highest severity (lowest sev #) then most connected.
+    candidates.sort(key=lambda n: (
+        g.nodes[n].get("severity", 4),
+        -g.degree(n),
+    ))
+    incident_nodes = candidates[:limit_incidents]
+    total_incidents = len(candidates)
     inc_set = set(incident_nodes)
     kept_entities: set[str] = set()
     for iid in incident_nodes:
@@ -98,7 +105,12 @@ def graph(
     for ent in kept_entities:
         d = g.nodes[ent]
         nodes.append({"id": ent, "type": d.get("type"), "label": d.get("label")})
-    return {"nodes": nodes, "edges": edges, "incidents": len(incident_nodes)}
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "incidents": len(incident_nodes),
+        "totalIncidents": total_incidents,
+    }
 
 
 @router.get("/graph/neighbors/{node_id:path}")

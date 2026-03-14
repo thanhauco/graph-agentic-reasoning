@@ -205,7 +205,12 @@ def neighbors(client: MemgraphClient, node_id: str, *, limit: int = 50) -> dict[
         OPTIONAL MATCH (n) WHERE n.incidentId = $id OR n.name = $id OR n.communityId = $id
         WITH n LIMIT 1
         OPTIONAL MATCH (n)-[r]-(m)
-        RETURN n, r, m LIMIT $limit
+        RETURN n AS n,
+               type(r)              AS relType,
+               startNode(r)         AS startNode,
+               endNode(r)           AS endNode,
+               m                    AS m
+        LIMIT $limit
         """,
         id=node_id, limit=limit,
     )
@@ -215,27 +220,28 @@ def neighbors(client: MemgraphClient, node_id: str, *, limit: int = 50) -> dict[
     node_map: dict[str, dict[str, Any]] = {}
     edges: list[dict[str, Any]] = []
 
-    def _view(nx_node: Any) -> dict[str, Any]:
-        props = dict(nx_node)
-        key = props.get("incidentId") or props.get("name") or props.get("communityId")
-        lbls = list(getattr(nx_node, "labels", []) or [])
-        return {"id": key, "type": lbls[0] if lbls else None, **props}
+    def _key(node: Any) -> str | None:
+        if node is None:
+            return None
+        return node.get("incidentId") or node.get("name") or node.get("communityId")
+
+    def _view(node: Any) -> dict[str, Any]:
+        props = dict(node)
+        lbls = list(getattr(node, "labels", []) or [])
+        return {"id": _key(node), "type": lbls[0] if lbls else None, **props}
 
     root = _view(rows[0]["n"])
     node_map[root["id"]] = root
     for r in rows:
-        if r.get("r") is None:
+        if not r.get("relType"):
             continue
         m = _view(r["m"])
         node_map[m["id"]] = m
-        rel = r["r"]
-        # Build edge in original direction.
-        try:
-            s_key = rel.start_node.get("incidentId") or rel.start_node.get("name") or rel.start_node.get("communityId")
-            e_key = rel.end_node.get("incidentId") or rel.end_node.get("name") or rel.end_node.get("communityId")
-        except Exception:  # noqa: BLE001
-            s_key, e_key = root["id"], m["id"]
-        edges.append({"source": s_key, "target": e_key, "relation": rel.type})
+        edges.append({
+            "source": _key(r["startNode"]) or root["id"],
+            "target": _key(r["endNode"]) or m["id"],
+            "relation": r["relType"],
+        })
 
     return {"node": root["id"], "nodes": list(node_map.values()), "edges": edges}
 
