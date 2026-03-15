@@ -14,9 +14,11 @@ const TYPE_COLOR: Record<string, string> = {
   RootCauseCategory: "#ef4444",
   Mitigation: "#14b8a6",
   Component: "#64748b",
+  Community: "#9333ea",
 };
 
-const SEV_COLOR = ["#b91c1c", "#dc2626", "#ea580c", "#d97706", "#2563eb"];
+// Sev0 deep red → Sev4 calm blue.
+const SEV_COLOR = ["#b91c1c", "#dc2626", "#f97316", "#eab308", "#3b82f6"];
 
 export type Props = {
   nodes: GraphNode[];
@@ -57,13 +59,16 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
     const cy = cytoscape({
       container: containerRef.current,
       elements,
-      wheelSensitivity: 0.2,
+      wheelSensitivity: 0.25,
+      minZoom: 0.2,
+      maxZoom: 3,
       style: [
         {
           selector: "node",
           style: {
             label: "data(label)",
             "font-size": 9,
+            "font-family": "Inter, system-ui, sans-serif",
             "text-valign": "center",
             "text-halign": "center",
             color: "#0f172a",
@@ -74,10 +79,13 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
               }
               return TYPE_COLOR[ele.data("type")] ?? "#94a3b8";
             },
-            "border-width": 1,
+            "border-width": 1.5,
             "border-color": "#ffffff",
-            width: (ele: any) => (ele.data("type") === "Incident" ? 14 : 20),
-            height: (ele: any) => (ele.data("type") === "Incident" ? 14 : 20),
+            width: (ele: any) => (ele.data("type") === "Incident" ? 16 : 24),
+            height: (ele: any) => (ele.data("type") === "Incident" ? 16 : 24),
+            "transition-property":
+              "background-color, border-color, border-width, opacity",
+            "transition-duration": 220,
           } as any,
         },
         {
@@ -87,6 +95,7 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
             "font-size": 10,
             "text-outline-color": "#ffffff",
             "text-outline-width": 2,
+            shape: "round-rectangle",
           } as any,
         },
         {
@@ -96,30 +105,70 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
             "line-color": "#cbd5e1",
             "target-arrow-color": "#cbd5e1",
             "target-arrow-shape": "triangle",
+            "arrow-scale": 0.8,
             "curve-style": "bezier",
-            opacity: 0.65,
+            opacity: 0.55,
+            "transition-property": "line-color, target-arrow-color, opacity, width",
+            "transition-duration": 220,
+          } as any,
+        },
+        { selector: ".dim", style: { opacity: 0.08, "text-opacity": 0 } as any },
+        {
+          selector: ".hl-node",
+          style: {
+            "border-width": 4,
+            "border-color": "#fbbf24",
+            "z-index": 9999,
+          } as any,
+        },
+        {
+          selector: ".hl-edge",
+          style: {
+            "line-color": "#fbbf24",
+            "target-arrow-color": "#fbbf24",
+            opacity: 1,
+            width: 2.5,
           } as any,
         },
         {
           selector: "node:selected",
           style: {
-            "border-width": 3,
+            "border-width": 4,
             "border-color": "#2563eb",
+            "z-index": 9999,
           } as any,
         },
       ],
       layout: {
         name: "fcose",
-        animate: false,
+        animate: true,
+        animationDuration: 500,
+        animationEasing: "ease-out",
         randomize: true,
-        nodeRepulsion: 4500,
-        idealEdgeLength: 60,
+        nodeRepulsion: 5500,
+        idealEdgeLength: 70,
         nodeDimensionsIncludeLabels: true,
+        packComponents: true,
+        fit: true,
+        padding: 30,
       } as any,
     });
     cyRef.current = cy;
 
     cy.on("tap", "node", (e) => onSelect?.(e.target.id()));
+
+    cy.on("mouseover", "node", (e) => {
+      const node = e.target;
+      const nb = node.closedNeighborhood();
+      cy.elements().difference(nb).addClass("dim");
+      nb.nodes().addClass("hl-node");
+      nb.edges().addClass("hl-edge");
+      if (containerRef.current) containerRef.current.style.cursor = "pointer";
+    });
+    cy.on("mouseout", "node", () => {
+      cy.elements().removeClass("dim hl-node hl-edge");
+      if (containerRef.current) containerRef.current.style.cursor = "";
+    });
 
     return () => {
       cy.destroy();
@@ -135,7 +184,10 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
     const n = cy.getElementById(selected);
     if (n && n.length) {
       n.select();
-      cy.animate({ center: { eles: n }, zoom: 1.1 }, { duration: 350 });
+      cy.animate(
+        { center: { eles: n }, zoom: 1.4 },
+        { duration: 450, easing: "ease-in-out" },
+      );
     }
   }, [selected]);
 
