@@ -200,46 +200,73 @@ def shortest_path_between(
 # ---------- neighbor expansion ----------
 
 def neighbors(client: MemgraphClient, node_id: str, *, limit: int = 50) -> dict[str, Any]:
+    # The frontend (and NetworkX store) use ids like "Team:Front-Door-Edge" for
+    # entity nodes and "INC-..." for incidents. Strip the "Type:" prefix when
+    # looking up in Memgraph; we re-attach it on the way out.
+    raw_id = node_id
+    bare_id = node_id.split(":", 1)[1] if ":" in node_id and not node_id.startswith("INC-") else node_id
+
     rows = client.read(
         """
-        OPTIONAL MATCH (n) WHERE n.incidentId = $id OR n.name = $id OR n.communityId = $id
+        OPTIONAL MATCH (n) WHERE n.incidentId = $id OR n.name = $bare OR n.communityId = $bare
         WITH n LIMIT 1
         OPTIONAL MATCH (n)-[r]-(m)
         RETURN n AS n,
+               labels(n)            AS nLabels,
                type(r)              AS relType,
                startNode(r)         AS startNode,
+               labels(startNode(r)) AS startLabels,
                endNode(r)           AS endNode,
-               m                    AS m
+               labels(endNode(r))   AS endLabels,
+               m                    AS m,
+               labels(m)            AS mLabels
         LIMIT $limit
         """,
-        id=node_id, limit=limit,
+        id=raw_id, bare=bare_id, limit=limit,
     )
     if not rows or rows[0].get("n") is None:
-        return {"node": None, "edges": []}
+        return {"node": None, "nodes": [], "edges": []}
 
     node_map: dict[str, dict[str, Any]] = {}
     edges: list[dict[str, Any]] = []
 
-    def _key(node: Any) -> str | None:
+    def _key(node: Any, labels: list[str] | None) -> str | None:
         if node is None:
             return None
-        return node.get("incidentId") or node.get("name") or node.get("communityId")
+        label = labels[0] if labels else None
+        if label == "Incident":
+            return node.get("incidentId")
+        if label == "Community":
+            cid = node.get("communityId")
+            return f"Community:{cid}" if cid else None
+        name = node.get("name")
+        if name and label:
+            return f"{label}:{name}"
+        return name or node.get("incidentId") or node.get("communityId")
 
-    def _view(node: Any) -> dict[str, Any]:
-        props = dict(node)
-        lbls = list(getattr(node, "labels", []) or [])
-        return {"id": _key(node), "type": lbls[0] if lbls else None, **props}
+    def _view(node: Any, labels: list[str] | None) -> dict[str, Any]:
+        props = dict(node) if node else {}
+        label = labels[0] if labels else None
+        key = _key(node, labels)
+        return {
+            "id": key,
+            "type": label,
+            "label": props.get("name") or props.get("incidentId") or key,
+            **{k: v for k, v in props.items() if k != "description"},
+        }
 
-    root = _view(rows[0]["n"])
+    root = _view(rows[0]["n"], rows[0].get("nLabels"))
     node_map[root["id"]] = root
     for r in rows:
         if not r.get("relType"):
             continue
-        m = _view(r["m"])
+        m = _view(r["m"], r.get("mLabels"))
         node_map[m["id"]] = m
+        src_key = _key(r.get("startNode"), r.get("startLabels")) or root["id"]
+        dst_key = _key(r.get("endNode"), r.get("endLabels")) or m["id"]
         edges.append({
-            "source": _key(r["startNode"]) or root["id"],
-            "target": _key(r["endNode"]) or m["id"],
+            "source": src_key,
+            "target": dst_key,
             "relation": r["relType"],
         })
 
