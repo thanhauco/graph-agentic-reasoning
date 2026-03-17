@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
@@ -12,13 +12,44 @@ import {
   SeverityBadge,
 } from "@/components/ui";
 
+const STATE_KEY = "explorer.state.v1";
+
+type PersistedState = {
+  service: string;
+  region: string;
+  selected: string | null;
+  limit: number;
+  search: string;
+};
+
+function loadState(): Partial<PersistedState> {
+  try {
+    const raw = sessionStorage.getItem(STATE_KEY);
+    return raw ? (JSON.parse(raw) as PersistedState) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function Explorer() {
-  const [service, setService] = useState("");
-  const [region, setRegion] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [limit, setLimit] = useState(100);
-  const [search, setSearch] = useState("");
+  const initial = loadState();
+  const [service, setService] = useState(initial.service ?? "");
+  const [region, setRegion] = useState(initial.region ?? "");
+  const [selected, setSelected] = useState<string | null>(initial.selected ?? null);
+  const [limit, setLimit] = useState(initial.limit ?? 100);
+  const [search, setSearch] = useState(initial.search ?? "");
   const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        STATE_KEY,
+        JSON.stringify({ service, region, selected, limit, search }),
+      );
+    } catch {
+      /* ignore quota / disabled storage */
+    }
+  }, [service, region, selected, limit, search]);
 
   const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: api.stats });
   const { data: graph, isLoading, isFetching } = useQuery({

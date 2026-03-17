@@ -131,11 +131,22 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
           } as any,
         },
         {
-          selector: "node:selected",
+          selector: "node:selected, node.focused",
           style: {
-            "border-width": 4,
+            "border-width": 5,
             "border-color": "#2563eb",
+            "border-opacity": 1,
+            "background-blacken": -0.1,
             "z-index": 9999,
+          } as any,
+        },
+        {
+          selector: "edge.focused-edge",
+          style: {
+            "line-color": "#2563eb",
+            "target-arrow-color": "#2563eb",
+            width: 2,
+            opacity: 0.9,
           } as any,
         },
       ],
@@ -160,7 +171,10 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
     cy.on("mouseover", "node", (e) => {
       const node = e.target;
       const nb = node.closedNeighborhood();
-      cy.elements().difference(nb).addClass("dim");
+      // Don't dim focused (persistently-selected) node or its neighborhood.
+      const focused = cy.nodes(".focused");
+      const keep = nb.union(focused.closedNeighborhood());
+      cy.elements().difference(keep).addClass("dim");
       nb.nodes().addClass("hl-node");
       nb.edges().addClass("hl-edge");
       if (containerRef.current) containerRef.current.style.cursor = "pointer";
@@ -179,17 +193,24 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
 
   useEffect(() => {
     const cy = cyRef.current;
-    if (!cy || !selected) return;
+    if (!cy) return;
     cy.elements().unselect();
+    cy.nodes().removeClass("focused");
+    cy.edges().removeClass("focused-edge");
+    if (!selected) return;
     const n = cy.getElementById(selected);
     if (n && n.length) {
       n.select();
+      n.addClass("focused");
+      n.connectedEdges().addClass("focused-edge");
       cy.animate(
         { center: { eles: n }, zoom: 1.4 },
         { duration: 450, easing: "ease-in-out" },
       );
     }
-  }, [selected]);
+    // Re-run when elements change (e.g. after remount / graph reload)
+    // so the focused visual is reapplied on a freshly-built cytoscape.
+  }, [selected, elements]);
 
   return <div ref={containerRef} className="h-full w-full rounded-lg border border-slate-200 bg-white" />;
 }
