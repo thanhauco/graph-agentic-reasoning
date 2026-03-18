@@ -25,9 +25,16 @@ export type Props = {
   edges: GraphEdge[];
   selected?: string | null;
   onSelect?: (id: string) => void;
+  highlightIds?: string[];
 };
 
-export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Props) {
+export default function KnowledgeGraph({
+  nodes,
+  edges,
+  selected,
+  onSelect,
+  highlightIds,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
 
@@ -131,6 +138,15 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
           } as any,
         },
         {
+          selector: ".query-hit",
+          style: {
+            "border-width": 4,
+            "border-color": "#22c55e",
+            "background-blacken": -0.15,
+            "z-index": 9998,
+          } as any,
+        },
+        {
           selector: "node:selected, node.focused",
           style: {
             "border-width": 5,
@@ -211,6 +227,28 @@ export default function KnowledgeGraph({ nodes, edges, selected, onSelect }: Pro
     // Re-run when elements change (e.g. after remount / graph reload)
     // so the focused visual is reapplied on a freshly-built cytoscape.
   }, [selected, elements]);
+
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    cy.nodes().removeClass("query-hit");
+    const ids = highlightIds ?? [];
+    if (!ids.length) return;
+    const hits = cy.collection();
+    ids.forEach((id) => {
+      const n = cy.getElementById(id);
+      if (n && n.length) {
+        n.addClass("query-hit");
+        hits.merge(n as any);
+      }
+    });
+    if (hits.length > 0) {
+      cy.animate(
+        { fit: { eles: hits, padding: 60 } as any },
+        { duration: 500, easing: "ease-in-out" },
+      );
+    }
+  }, [highlightIds, elements]);
 
   return <div ref={containerRef} className="h-full w-full rounded-lg border border-slate-200 bg-white" />;
 }

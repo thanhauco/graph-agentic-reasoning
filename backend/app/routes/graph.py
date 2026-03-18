@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel
 
+from app.agent.nl_query import parse_query
 from app.graphrag import retriever
 
 router = APIRouter(tags=["graph"])
@@ -121,3 +123,117 @@ def graph_neighbors(req: Request, node_id: str, limit: int = 50) -> dict[str, An
 @router.get("/communities")
 def communities(req: Request, limit: int = 20) -> list[dict[str, Any]]:
     return _store(req).communities[:limit]
+
+
+class NLQueryBody(BaseModel):
+    question: str
+    limit: int = 50
+
+
+@router.post("/graph/query")
+def graph_query(req: Request, body: NLQueryBody) -> dict[str, Any]:
+    """Translate a natural-language question into structured filters and return
+    matching incident ids (plus the entities they touch) so the Explorer can
+    highlight / zoom to them on top of the currently-loaded graph.
+
+    This reuses the same heuristic NL parser the agent uses, so it works
+    without calling an LLM and understands vocabulary like severity, region,
+    service, team, root cause, date windows, and free-text keywords.
+    """
+    store = _store(req)
+    gq = parse_query(body.question, store)
+
+    g = store.graph
+    matches: list[dict[str, Any]] = []
+
+    # 1) Specific incident lookup
+    if gq.incidentId:
+        iid = gq.incidentId.upper()
+        if g.has_node(iid):
+            d = g.nodes[iid]
+            matches.append({
+                "id": iid, "type": "Incident", "label": iid,
+                "severity": d.get("severity"), "service": d.get("service"),
+                "region": d.get("region"), "status": d.get("status"),
+                "title": d.get("title"),
+            })
+
+    # 2) Structured filter over incidents
+    keywords_lc = [k.lower() for k in (gq.keywords or [])]
+    for iid, d in g.nodes(data=True):
+        if d.get("type") != "Incident":
+            continue
+        if gq.service and d.get("service") != gq.service:
+            continue
+        if gq.region and d.get("region") != gq.region:
+            continue
+        if gq.team and d.get("team") != gq.team:
+            continue
+        if gq.rootCause and d.get("rootCauseCategory") != gq.rootCause:
+            continue
+        if gq.status and d.get("status") != gq.status:
+            continue
+        if gq.severity is not None and d.get("severity") != gq.severity:
+            continue
+        created = d.get("createdAt") or ""
+        if gq.startIso and created and created < gq.startIso:
+            continue
+        if gq.endIso and created and created > gq.endIso:
+            continue
+        if keywords_lc:
+            hay = " ".join([
+                str(d.get("title") or ""),
+                str(d.get("description") or ""),
+                str(d.get("mitigation") or ""),
+            ]).lower()
+            if not any(k in hay for k in keywords_lc):
+                continue
+        if any(m["id"] == iid for m in matches):
+            continue
+        matches.append({
+            "id": iid, "type": "Incident", "label": iid,
+            "severity": d.get("severity"), "service": d.get("service"),
+            "region": d.get("region"), "status": d.get("status"),
+            "title": d.get("title"),
+        })
+
+    # Rank: severity asc (Sev0 first), then most connected, then recency desc.
+    matches.sort(key=lambda m: (
+        m.get("severity", 4),
+        -g.degree(m["id"]) if g.has_node(m["id"]) else 0,
+    ))
+    matches = matches[: body.limit]
+
+    # Collect highlight entity ids (service/region/team/rootCause anchors)
+    anchors: list[str] = []
+    for key, label in (
+        (gq.service, "Service"),
+        (gq.region, "Region"),
+        (gq.team, "Team"),
+        (gq.rootCause, "RootCauseCategory"),
+    ):
+        if key:
+            nid = f"{label}:{key}"
+            if g.has_node(nid):
+                anchors.append(nid)
+
+    return {
+        "question": body.question,
+        "intent": gq.intent,
+        "filters": {
+            "service": gq.service,
+            "region": gq.region,
+            "team": gq.team,
+            "rootCause": gq.rootCause,
+            "status": gq.status,
+            "severity": gq.severity,
+            "start": gq.startIso,
+            "end": gq.endIso,
+            "keywords": gq.keywords,
+            "incidentId": gq.incidentId,
+        },
+        "matches": matches,
+        "matchIds": [m["id"] for m in matches],
+        "anchorIds": anchors,
+        "total": len(matches),
+    }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useMutation, useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import {
@@ -11,6 +11,7 @@ import {
   Select,
   SeverityBadge,
 } from "@/components/ui";
+import { Sparkles } from "lucide-react";
 
 const STATE_KEY = "explorer.state.v1";
 
@@ -39,6 +40,19 @@ export default function Explorer() {
   const [limit, setLimit] = useState(initial.limit ?? 100);
   const [search, setSearch] = useState(initial.search ?? "");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [nlQuery, setNlQuery] = useState("");
+  const [queryHighlight, setQueryHighlight] = useState<string[]>([]);
+
+  const runNlQuery = useMutation({
+    mutationFn: (q: string) => api.graphQuery(q, 50),
+    onSuccess: (res) => {
+      const ids = [...(res.matchIds ?? []), ...(res.anchorIds ?? [])];
+      setQueryHighlight(ids);
+      if (res.matchIds && res.matchIds.length > 0) {
+        setSelected(res.matchIds[0]);
+      }
+    },
+  });
 
   useEffect(() => {
     try {
@@ -241,6 +255,56 @@ export default function Explorer() {
         </span>
       </div>
 
+      <div className="flex items-center gap-2 px-6 py-2 border-b border-slate-200 bg-white">
+        <Sparkles className="h-4 w-4 text-primary shrink-0" />
+        <input
+          type="text"
+          value={nlQuery}
+          onChange={(e) => setNlQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && nlQuery.trim()) {
+              runNlQuery.mutate(nlQuery.trim());
+            }
+            if (e.key === "Escape") {
+              setNlQuery("");
+              setQueryHighlight([]);
+              runNlQuery.reset();
+            }
+          }}
+          placeholder="Ask the graph in natural language — e.g. 'sev1 Front Door incidents in westus2'"
+          className="flex-1 h-9 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        />
+        <button
+          type="button"
+          onClick={() => nlQuery.trim() && runNlQuery.mutate(nlQuery.trim())}
+          disabled={!nlQuery.trim() || runNlQuery.isPending}
+          className="h-9 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
+        >
+          {runNlQuery.isPending ? "Querying…" : "Query"}
+        </button>
+        {(queryHighlight.length > 0 || runNlQuery.data) && (
+          <button
+            type="button"
+            onClick={() => {
+              setQueryHighlight([]);
+              runNlQuery.reset();
+            }}
+            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Clear
+          </button>
+        )}
+        {runNlQuery.data && (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {runNlQuery.data.total} match{runNlQuery.data.total === 1 ? "" : "es"}
+            {runNlQuery.data.intent && ` · ${runNlQuery.data.intent}`}
+          </span>
+        )}
+        {runNlQuery.isError && (
+          <span className="text-xs text-red-600">Query failed</span>
+        )}
+      </div>
+
       <div className="flex-1 grid grid-cols-[1fr_360px] gap-4 p-4 min-h-0">
         <div className="min-h-0">
           {isLoading || !graph ? (
@@ -253,6 +317,7 @@ export default function Explorer() {
               edges={graph.edges}
               selected={selected}
               onSelect={setSelected}
+              highlightIds={queryHighlight}
             />
           )}
         </div>
@@ -366,14 +431,26 @@ export default function Explorer() {
                   Neighbors ({neighbors.edges?.length ?? 0})
                 </div>
                 <ul className="space-y-1 text-xs">
-                  {(neighbors.edges ?? []).slice(0, 20).map((e, i) => (
-                    <li key={i} className="flex gap-2">
-                      <Badge variant="outline">{e.relation}</Badge>
-                      <span className="font-mono text-[11px] text-slate-600 truncate">
-                        {e.source === selected ? e.target : e.source}
-                      </span>
-                    </li>
-                  ))}
+                  {(neighbors.edges ?? []).slice(0, 20).map((e, i) => {
+                    const otherId = e.source === selected ? e.target : e.source;
+                    return (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          onClick={() => setSelected(otherId)}
+                          className="flex w-full items-center gap-2 rounded px-1 py-1 text-left hover:bg-slate-50"
+                          title={`Go to ${otherId}`}
+                        >
+                          <Badge variant="outline" className="shrink-0">
+                            {e.relation}
+                          </Badge>
+                          <span className="font-mono text-[11px] text-primary hover:underline truncate">
+                            {otherId}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
