@@ -305,6 +305,37 @@ export default function Explorer() {
         )}
       </div>
 
+      {runNlQuery.data && (
+        <div className="px-6 py-3 border-b border-slate-200 bg-gradient-to-r from-primary/5 via-white to-white">
+          <div className="flex items-start gap-3">
+            <Sparkles className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+            <div className="flex-1 min-w-0 space-y-2">
+              <p className="text-sm leading-relaxed text-slate-800">
+                {runNlQuery.data.answer}
+              </p>
+              <details className="group">
+                <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-700">
+                  Generated Cypher ({runNlQuery.data.cypherSource})
+                </summary>
+                <pre className="mt-1 overflow-auto rounded-md bg-slate-900 p-2 text-[11px] leading-relaxed text-slate-100 max-h-48">
+                  {runNlQuery.data.cypher}
+                </pre>
+                {Object.keys(runNlQuery.data.cypherParams ?? {}).length > 0 && (
+                  <pre className="mt-1 overflow-auto rounded-md bg-slate-100 p-2 text-[11px] leading-relaxed text-slate-700 max-h-32">
+                    {JSON.stringify(runNlQuery.data.cypherParams, null, 2)}
+                  </pre>
+                )}
+                {runNlQuery.data.explanation && (
+                  <p className="mt-1 text-[11px] italic text-slate-500">
+                    {runNlQuery.data.explanation}
+                  </p>
+                )}
+              </details>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 grid grid-cols-[1fr_360px] gap-4 p-4 min-h-0">
         <div className="min-h-0">
           {isLoading || !graph ? (

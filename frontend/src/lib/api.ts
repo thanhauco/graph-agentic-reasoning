@@ -84,10 +84,15 @@ export const api = {
     j<{
       question: string;
       intent: string;
-      filters: Record<string, unknown>;
+      cypher: string;
+      cypherParams: Record<string, unknown>;
+      cypherSource: "llm" | "heuristic";
+      explanation: string;
+      answer: string;
       matches: GraphNode[];
       matchIds: string[];
       anchorIds: string[];
+      rows: Array<Record<string, unknown>>;
       total: number;
     }>(`/graph/query`, {
       method: "POST",
