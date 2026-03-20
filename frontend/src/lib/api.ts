@@ -87,6 +87,7 @@ export const api = {
       cypher: string;
       cypherParams: Record<string, unknown>;
       cypherSource: "llm" | "heuristic";
+      cypherSteps: Array<{ label: string; cypher: string; params: Record<string, unknown> }>;
       explanation: string;
       answer: string;
       matches: GraphNode[];

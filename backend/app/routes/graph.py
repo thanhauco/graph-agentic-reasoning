@@ -148,6 +148,7 @@ def graph_query(req: Request, body: NLQueryBody) -> dict[str, Any]:
         "cypher": result.plan.cypher,
         "cypherParams": result.plan.params,
         "cypherSource": result.plan.source,  # "llm" | "heuristic"
+        "cypherSteps": result.plan.steps,  # list of {label, cypher, params}
         "explanation": result.plan.explanation,
         "answer": result.answer,
         "matches": result.matches,

@@ -32,6 +32,32 @@ function loadState(): Partial<PersistedState> {
   }
 }
 
+// Render a grounded answer: support **bold**, preserve newlines, and turn
+// any INC-YYYY-#### occurrence into a clickable link that selects the node.
+function renderAnswer(text: string, onSelect: (id: string) => void) {
+  const tokenRe = /(\*\*[^*]+\*\*|INC-\d{4}-\d{3,5})/g;
+  const parts = text.split(tokenRe);
+  return parts.map((p, i) => {
+    if (!p) return null;
+    if (/^\*\*[^*]+\*\*$/.test(p)) {
+      return <strong key={i} className="font-semibold">{p.slice(2, -2)}</strong>;
+    }
+    if (/^INC-\d{4}-\d{3,5}$/.test(p)) {
+      return (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onSelect(p)}
+          className="font-mono text-primary hover:underline"
+        >
+          {p}
+        </button>
+      );
+    }
+    return <span key={i}>{p}</span>;
+  });
+}
+
 export default function Explorer() {
   const initial = loadState();
   const [service, setService] = useState(initial.service ?? "");
@@ -310,23 +336,36 @@ export default function Explorer() {
           <div className="flex items-start gap-3">
             <Sparkles className="h-4 w-4 mt-0.5 text-primary shrink-0" />
             <div className="flex-1 min-w-0 space-y-2">
-              <p className="text-sm leading-relaxed text-slate-800">
-                {runNlQuery.data.answer}
-              </p>
+              <div className="text-sm leading-relaxed text-slate-800 whitespace-pre-line">
+                {renderAnswer(runNlQuery.data.answer, (id) => setSelected(id))}
+              </div>
               <details className="group">
                 <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-700">
-                  Generated Cypher ({runNlQuery.data.cypherSource})
+                  Generated Cypher ({runNlQuery.data.cypherSource}
+                  {runNlQuery.data.cypherSteps && runNlQuery.data.cypherSteps.length > 1
+                    ? ` · ${runNlQuery.data.cypherSteps.length} steps`
+                    : ""})
                 </summary>
-                <pre className="mt-1 overflow-auto rounded-md bg-slate-900 p-2 text-[11px] leading-relaxed text-slate-100 max-h-48">
-                  {runNlQuery.data.cypher}
-                </pre>
-                {Object.keys(runNlQuery.data.cypherParams ?? {}).length > 0 && (
-                  <pre className="mt-1 overflow-auto rounded-md bg-slate-100 p-2 text-[11px] leading-relaxed text-slate-700 max-h-32">
-                    {JSON.stringify(runNlQuery.data.cypherParams, null, 2)}
-                  </pre>
-                )}
+                {(runNlQuery.data.cypherSteps && runNlQuery.data.cypherSteps.length > 0
+                  ? runNlQuery.data.cypherSteps
+                  : [{ label: "main", cypher: runNlQuery.data.cypher, params: runNlQuery.data.cypherParams }]
+                ).map((step, i) => (
+                  <div key={i} className="mt-2">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Step {i + 1}: {step.label}
+                    </div>
+                    <pre className="mt-0.5 overflow-auto rounded-md bg-slate-900 p-2 text-[11px] leading-relaxed text-slate-100 max-h-48">
+                      {step.cypher}
+                    </pre>
+                    {Object.keys(step.params ?? {}).length > 0 && (
+                      <pre className="mt-0.5 overflow-auto rounded-md bg-slate-100 p-2 text-[11px] leading-relaxed text-slate-700 max-h-28">
+                        {JSON.stringify(step.params, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                ))}
                 {runNlQuery.data.explanation && (
-                  <p className="mt-1 text-[11px] italic text-slate-500">
+                  <p className="mt-2 text-[11px] italic text-slate-500">
                     {runNlQuery.data.explanation}
                   </p>
                 )}
