@@ -358,7 +358,7 @@ def _execute(plan: CypherPlan) -> list[dict[str, Any]]:
     return rows[:_MAX_ROWS]
 
 
-# ---------- step 3: embedding rerank ----------
+# ---------- step 3: relevance rerank ----------
 
 def _cosine(a: np.ndarray, B: np.ndarray) -> np.ndarray:
     an = a / (np.linalg.norm(a) + 1e-9)
@@ -366,20 +366,67 @@ def _cosine(a: np.ndarray, B: np.ndarray) -> np.ndarray:
     return (Bn @ an).astype(np.float32)
 
 
+_STOP = {
+    "the", "a", "an", "is", "are", "was", "were", "be", "to", "of", "in", "on",
+    "at", "for", "with", "and", "or", "but", "any", "it", "its", "this", "that",
+    "these", "those", "what", "which", "who", "whom", "when", "where", "why",
+    "how", "do", "does", "did", "has", "have", "had", "show", "list", "find",
+    "give", "me", "my", "please", "about", "similar", "related", "like", "to",
+    "happened", "happen", "happens", "incident", "incidents",
+}
+_WORD_RE = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{1,}")
+
+
+def _tokens(text: str) -> set[str]:
+    if not text:
+        return set()
+    return {t for t in (m.group(0).lower() for m in _WORD_RE.finditer(text)) if t not in _STOP}
+
+
+def _row_text(row: dict[str, Any]) -> str:
+    parts = [
+        row.get("incidentId"), row.get("title"), row.get("description"),
+        row.get("service"), row.get("region"), row.get("team"),
+        row.get("rootCauseCategory"), row.get("mitigation"),
+        row.get("status"), row.get("name"),
+    ]
+    sev = row.get("severity")
+    if sev is not None:
+        parts.append(f"sev{sev}")
+    return " ".join(str(p) for p in parts if p)
+
+
+def _lexical(q_tokens: set[str], row: dict[str, Any]) -> float:
+    """Jaccard-ish overlap of query tokens against row text."""
+    if not q_tokens:
+        return 0.0
+    rt = _tokens(_row_text(row))
+    if not rt:
+        return 0.0
+    overlap = len(q_tokens & rt)
+    return overlap / max(3, len(q_tokens))  # saturate around 3 matched terms
+
+
 def _rerank(question: str, rows: list[dict[str, Any]], store: AppState) -> list[dict[str, Any]]:
-    """Blend DB order with semantic similarity to the question using the
-    pre-computed incident embeddings. Only reranks non-target incident rows
-    (so a 'target' lookup stays first). Non-incident rows pass through."""
+    """Rerank ALL query results for relevance.
+
+    Signals (any that are available):
+      * Lexical overlap of query tokens with row text (always available).
+      * Semantic cosine between the query embedding and each incident's
+        pre-computed embedding (requires Azure OpenAI for the query side).
+      * Anchor-similarity: when the question has an anchor incident that
+        is in `store.incident_ids`, use its pre-computed embedding as an
+        additional reference vector (works WITHOUT Azure OpenAI).
+      * Rank prior from the DB's ORDER BY clause.
+
+    A row tagged `_step == "target"` is always pinned first (it's the
+    exact incident the user asked for). Non-incident rows pass through
+    after incident rows.
+    """
     if not rows:
         return rows
-    settings = get_settings()
-    if (
-        not settings.has_azure_openai
-        or store.incident_embeddings is None
-        or not store.incident_ids
-    ):
-        return rows
 
+    # ----- split rows -----
     target_rows = [r for r in rows if r.get("_step") == "target"]
     non_target = [r for r in rows if r.get("_step") != "target"]
     inc_rows = [r for r in non_target if r.get("incidentId")]
@@ -387,29 +434,83 @@ def _rerank(question: str, rows: list[dict[str, Any]], store: AppState) -> list[
     if not inc_rows:
         return rows
 
-    try:
-        from app.graphrag.llm import embed_texts
-        qv = embed_texts([question])[0]
-    except Exception as e:  # noqa: BLE001
-        log.warning("Embedding query failed: %s", e)
-        return rows
+    # ----- lexical signal (always) -----
+    q_tokens = _tokens(question)
 
-    id_to_idx = {iid: i for i, iid in enumerate(store.incident_ids)}
-    all_vecs = store.incident_embeddings
-    sims: list[tuple[float, dict[str, Any]]] = []
+    # ----- semantic signal (query embedding) -----
+    settings = get_settings()
+    have_incident_embeddings = (
+        store.incident_embeddings is not None and bool(store.incident_ids)
+    )
+    id_to_idx: dict[str, int] = (
+        {iid: i for i, iid in enumerate(store.incident_ids)}
+        if have_incident_embeddings else {}
+    )
+    qv: np.ndarray | None = None
+    if settings.has_azure_openai and have_incident_embeddings:
+        try:
+            from app.graphrag.llm import embed_texts
+            qv = np.asarray(embed_texts([question])[0], dtype=np.float32)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Query embedding failed, falling back to lexical: %s", e)
+            qv = None
+
+    # ----- anchor-similarity signal -----
+    anchor_vec: np.ndarray | None = None
+    if have_incident_embeddings:
+        # Pull anchor from parsed query (e.g. "similar to INC-...")
+        try:
+            gq = parse_query(question, store)
+            anchor_id = (gq.anchorId or gq.incidentId or "").upper() or None
+        except Exception:  # noqa: BLE001
+            anchor_id = None
+        if anchor_id and anchor_id in id_to_idx:
+            anchor_vec = np.asarray(
+                store.incident_embeddings[id_to_idx[anchor_id]], dtype=np.float32
+            )
+
+    # ----- score every incident row -----
+    scored: list[tuple[float, dict[str, Any]]] = []
     for pos, row in enumerate(inc_rows):
-        idx = id_to_idx.get(str(row["incidentId"]))
-        if idx is None:
-            sem = 0.0
-        else:
-            vec = all_vecs[idx : idx + 1]
-            sem = float(_cosine(qv, vec)[0])
+        lex = _lexical(q_tokens, row)
+        sem_q = 0.0
+        sem_a = 0.0
+        idx = id_to_idx.get(str(row.get("incidentId")))
+        if idx is not None:
+            vec = np.asarray(store.incident_embeddings[idx : idx + 1], dtype=np.float32)
+            if qv is not None:
+                sem_q = float(_cosine(qv, vec)[0])
+            if anchor_vec is not None and str(row["incidentId"]).upper() != (
+                # don't boost the anchor itself if it somehow leaks into peers
+                row.get("incidentId") if False else ""
+            ):
+                sem_a = float(_cosine(anchor_vec, vec)[0])
         rank_prior = max(0.0, 1.0 - pos / max(1, len(inc_rows)))
-        score = 0.7 * sem + 0.3 * rank_prior
-        sims.append((score, {**row, "_score": round(score, 4), "_semantic": round(sem, 4)}))
 
-    sims.sort(key=lambda t: t[0], reverse=True)
-    reranked = [r for _, r in sims]
+        # Weight: prefer explicit semantic signal; fall back to lexical.
+        if qv is not None and anchor_vec is not None:
+            sem = 0.6 * sem_q + 0.4 * sem_a
+        elif qv is not None:
+            sem = sem_q
+        elif anchor_vec is not None:
+            sem = sem_a
+        else:
+            sem = 0.0
+
+        if qv is not None or anchor_vec is not None:
+            score = 0.55 * sem + 0.30 * lex + 0.15 * rank_prior
+        else:
+            score = 0.70 * lex + 0.30 * rank_prior
+
+        scored.append((score, {
+            **row,
+            "_score": round(score, 4),
+            "_lexical": round(lex, 4),
+            "_semantic": round(sem, 4),
+        }))
+
+    scored.sort(key=lambda t: t[0], reverse=True)
+    reranked = [r for _, r in scored]
     return target_rows + reranked + other_rows
 
 
