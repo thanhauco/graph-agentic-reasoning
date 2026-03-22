@@ -69,14 +69,59 @@ export default function Explorer() {
   const [nlQuery, setNlQuery] = useState("");
   const [queryHighlight, setQueryHighlight] = useState<string[]>([]);
 
+  type ChatTurn = {
+    question: string;
+    answer: string;
+    intent: string;
+    total: number;
+    matchIds: string[];
+    anchorIds: string[];
+    cypherSource: "llm" | "heuristic";
+    cypherSteps: Array<{ label: string; cypher: string; params: Record<string, unknown> }>;
+    explanation: string;
+  };
+  const [conversation, setConversation] = useState<ChatTurn[]>([]);
+
   const runNlQuery = useMutation({
-    mutationFn: (q: string) => api.graphQuery(q, 50),
-    onSuccess: (res) => {
+    mutationFn: (q: string) =>
+      api.graphQuery(
+        q,
+        50,
+        selected,
+        // Send only the compact fields the backend uses for pronoun
+        // resolution and grounding. Trim to last 4 turns to keep prompts
+        // small.
+        conversation.slice(-4).map((t) => ({
+          question: t.question,
+          answer: t.answer,
+          matchIds: t.matchIds,
+          anchorIds: t.anchorIds,
+        })),
+      ),
+    onSuccess: (res, question) => {
       const ids = [...(res.matchIds ?? []), ...(res.anchorIds ?? [])];
       setQueryHighlight(ids);
       if (res.matchIds && res.matchIds.length > 0) {
         setSelected(res.matchIds[0]);
       }
+      setConversation((prev) => [
+        ...prev,
+        {
+          question,
+          answer: res.answer,
+          intent: res.intent,
+          total: res.total,
+          matchIds: res.matchIds ?? [],
+          anchorIds: res.anchorIds ?? [],
+          cypherSource: res.cypherSource,
+          cypherSteps:
+            res.cypherSteps && res.cypherSteps.length > 0
+              ? res.cypherSteps
+              : [{ label: "main", cypher: res.cypher, params: res.cypherParams }],
+          explanation: res.explanation,
+        },
+      ]);
+      setNlQuery("");
     },
   });
 
@@ -293,11 +338,13 @@ export default function Explorer() {
             }
             if (e.key === "Escape") {
               setNlQuery("");
-              setQueryHighlight([]);
-              runNlQuery.reset();
             }
           }}
-          placeholder="Ask the graph in natural language — e.g. 'sev1 Front Door incidents in westus2'"
+          placeholder={
+            conversation.length > 0
+              ? "Follow up — e.g. 'only sev1', 'similar to this', 'by Storage team'"
+              : "Ask the graph in natural language — e.g. 'sev1 Front Door incidents in westus2'"
+          }
           className="flex-1 h-9 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
         />
         <button
@@ -308,22 +355,23 @@ export default function Explorer() {
         >
           {runNlQuery.isPending ? "Querying…" : "Query"}
         </button>
-        {(queryHighlight.length > 0 || runNlQuery.data) && (
+        {(queryHighlight.length > 0 || conversation.length > 0) && (
           <button
             type="button"
             onClick={() => {
               setQueryHighlight([]);
+              setConversation([]);
               runNlQuery.reset();
             }}
             className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
           >
-            Clear
+            New chat
           </button>
         )}
-        {runNlQuery.data && (
+        {conversation.length > 0 && (
           <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {runNlQuery.data.total} match{runNlQuery.data.total === 1 ? "" : "es"}
-            {runNlQuery.data.intent && ` · ${runNlQuery.data.intent}`}
+            {conversation.length} turn{conversation.length === 1 ? "" : "s"}
+            {runNlQuery.data && ` · ${runNlQuery.data.intent}`}
           </span>
         )}
         {runNlQuery.isError && (
@@ -331,47 +379,61 @@ export default function Explorer() {
         )}
       </div>
 
-      {runNlQuery.data && (
-        <div className="px-6 py-3 border-b border-slate-200 bg-gradient-to-r from-primary/5 via-white to-white">
-          <div className="flex items-start gap-3">
-            <Sparkles className="h-4 w-4 mt-0.5 text-primary shrink-0" />
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="text-sm leading-relaxed text-slate-800 whitespace-pre-line">
-                {renderAnswer(runNlQuery.data.answer, (id) => setSelected(id))}
-              </div>
-              <details className="group">
-                <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-700">
-                  Generated Cypher ({runNlQuery.data.cypherSource}
-                  {runNlQuery.data.cypherSteps && runNlQuery.data.cypherSteps.length > 1
-                    ? ` · ${runNlQuery.data.cypherSteps.length} steps`
-                    : ""})
-                </summary>
-                {(runNlQuery.data.cypherSteps && runNlQuery.data.cypherSteps.length > 0
-                  ? runNlQuery.data.cypherSteps
-                  : [{ label: "main", cypher: runNlQuery.data.cypher, params: runNlQuery.data.cypherParams }]
-                ).map((step, i) => (
-                  <div key={i} className="mt-2">
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                      Step {i + 1}: {step.label}
+      {conversation.length > 0 && (
+        <div className="px-6 py-3 border-b border-slate-200 bg-gradient-to-r from-primary/5 via-white to-white max-h-72 overflow-auto space-y-3">
+          {conversation.map((turn, idx) => {
+            const isLast = idx === conversation.length - 1;
+            return (
+              <div key={idx} className="space-y-1.5">
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 inline-flex h-5 items-center rounded-full bg-slate-200 px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                    You
+                  </span>
+                  <p className="text-sm text-slate-700">{turn.question}</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Sparkles className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="text-sm leading-relaxed text-slate-800 whitespace-pre-line">
+                      {renderAnswer(turn.answer, (id) => setSelected(id))}
                     </div>
-                    <pre className="mt-0.5 overflow-auto rounded-md bg-slate-900 p-2 text-[11px] leading-relaxed text-slate-100 max-h-48">
-                      {step.cypher}
-                    </pre>
-                    {Object.keys(step.params ?? {}).length > 0 && (
-                      <pre className="mt-0.5 overflow-auto rounded-md bg-slate-100 p-2 text-[11px] leading-relaxed text-slate-700 max-h-28">
-                        {JSON.stringify(step.params, null, 2)}
-                      </pre>
+                    {isLast && (
+                      <details className="group">
+                        <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-700">
+                          Generated Cypher ({turn.cypherSource}
+                          {turn.cypherSteps.length > 1 ? ` · ${turn.cypherSteps.length} steps` : ""})
+                        </summary>
+                        {turn.cypherSteps.map((step, i) => (
+                          <div key={i} className="mt-2">
+                            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                              Step {i + 1}: {step.label}
+                            </div>
+                            <pre className="mt-0.5 overflow-auto rounded-md bg-slate-900 p-2 text-[11px] leading-relaxed text-slate-100 max-h-48">
+                              {step.cypher}
+                            </pre>
+                            {Object.keys(step.params ?? {}).length > 0 && (
+                              <pre className="mt-0.5 overflow-auto rounded-md bg-slate-100 p-2 text-[11px] leading-relaxed text-slate-700 max-h-28">
+                                {JSON.stringify(step.params, null, 2)}
+                              </pre>
+                            )}
+                          </div>
+                        ))}
+                        {turn.explanation && (
+                          <p className="mt-2 text-[11px] italic text-slate-500">{turn.explanation}</p>
+                        )}
+                      </details>
                     )}
                   </div>
-                ))}
-                {runNlQuery.data.explanation && (
-                  <p className="mt-2 text-[11px] italic text-slate-500">
-                    {runNlQuery.data.explanation}
-                  </p>
-                )}
-              </details>
+                </div>
+              </div>
+            );
+          })}
+          {runNlQuery.isPending && (
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <Sparkles className="h-3 w-3 animate-pulse text-primary" />
+              Thinking…
             </div>
-          </div>
+          )}
         </div>
       )}
 

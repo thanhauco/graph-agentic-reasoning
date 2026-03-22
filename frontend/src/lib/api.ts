@@ -80,7 +80,12 @@ export const api = {
     j<{ node: string; nodes: GraphNode[]; edges: GraphEdge[] }>(
       `/graph/neighbors/${encodeURIComponent(id)}?limit=${limit}`,
     ),
-  graphQuery: (question: string, limit = 50) =>
+  graphQuery: (
+    question: string,
+    limit = 50,
+    selectedId?: string | null,
+    history: Array<{ question: string; answer?: string; matchIds?: string[]; anchorIds?: string[] }> = [],
+  ) =>
     j<{
       question: string;
       intent: string;
@@ -98,7 +103,12 @@ export const api = {
     }>(`/graph/query`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, limit }),
+      body: JSON.stringify({
+        question,
+        limit,
+        selectedId: selectedId ?? null,
+        history,
+      }),
     }),
   communities: (limit = 20) =>
     j<Array<{

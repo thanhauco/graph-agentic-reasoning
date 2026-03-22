@@ -125,9 +125,18 @@ def communities(req: Request, limit: int = 20) -> list[dict[str, Any]]:
     return _store(req).communities[:limit]
 
 
+class HistoryTurn(BaseModel):
+    question: str
+    answer: str | None = None
+    matchIds: list[str] = []
+    anchorIds: list[str] = []
+
+
 class NLQueryBody(BaseModel):
     question: str
     limit: int = 50
+    selectedId: str | None = None
+    history: list[HistoryTurn] = []
 
 
 @router.post("/graph/query")
@@ -141,7 +150,13 @@ def graph_query(req: Request, body: NLQueryBody) -> dict[str, Any]:
     translator if Azure OpenAI is not configured or the LLM output is unsafe.
     """
     store = _store(req)
-    result = run_pipeline(body.question, store, limit=body.limit)
+    result = run_pipeline(
+        body.question,
+        store,
+        limit=body.limit,
+        selected_id=body.selectedId,
+        history=[t.model_dump() for t in body.history],
+    )
     return {
         "question": result.question,
         "intent": result.plan.intent,

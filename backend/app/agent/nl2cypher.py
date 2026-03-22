@@ -159,7 +159,12 @@ def _vocab_hint(store: AppState) -> str:
     )
 
 
-def _llm_plan(question: str, store: AppState) -> CypherPlan | None:
+def _llm_plan(
+    question: str,
+    store: AppState,
+    *,
+    history: list[dict[str, Any]] | None = None,
+) -> CypherPlan | None:
     settings = get_settings()
     if not settings.has_azure_openai:
         return None
@@ -167,7 +172,29 @@ def _llm_plan(question: str, store: AppState) -> CypherPlan | None:
         from app.graphrag.llm import chat as llm_chat
     except Exception:  # pragma: no cover
         return None
-    user = f"Vocabulary:\n{_vocab_hint(store)}\n\nQuestion: {question}\n\nReturn ONLY the JSON object."
+    hist_block = ""
+    if history:
+        turns: list[str] = []
+        for t in history[-4:]:
+            q = str(t.get("question") or "").strip()
+            a = str(t.get("answer") or "").strip()
+            mids = ", ".join(list(t.get("matchIds") or [])[:5])
+            if q:
+                turns.append(
+                    f"- Q: {q}\n  A: {a[:240]}" + (f"\n  matches: {mids}" if mids else "")
+                )
+        if turns:
+            hist_block = (
+                "Recent conversation (oldest → newest). Use it to resolve "
+                "pronouns/follow-ups like 'those', 'these', 'the same', 'more like that':\n"
+                + "\n".join(turns)
+                + "\n\n"
+            )
+    user = (
+        f"Vocabulary:\n{_vocab_hint(store)}\n\n"
+        f"{hist_block}"
+        f"Question: {question}\n\nReturn ONLY the JSON object."
+    )
     try:
         raw = llm_chat(_SYSTEM_PROMPT, user, max_tokens=700, temperature=0.1)
     except Exception as e:  # noqa: BLE001
@@ -322,8 +349,13 @@ def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
     )
 
 
-def plan_cypher(question: str, store: AppState) -> CypherPlan:
-    plan = _llm_plan(question, store)
+def plan_cypher(
+    question: str,
+    store: AppState,
+    *,
+    history: list[dict[str, Any]] | None = None,
+) -> CypherPlan:
+    plan = _llm_plan(question, store, history=history)
     if plan is not None:
         return plan
     return _heuristic_plan(question, store)
@@ -572,7 +604,13 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
     return "\n\n".join(parts) if parts else f"Found {len(rows)} result(s)."
 
 
-def _answer(question: str, rows: list[dict[str, Any]], plan: CypherPlan) -> str:
+def _answer(
+    question: str,
+    rows: list[dict[str, Any]],
+    plan: CypherPlan,
+    *,
+    history: list[dict[str, Any]] | None = None,
+) -> str:
     settings = get_settings()
     if not settings.has_azure_openai or not rows:
         return _deterministic_answer(question, rows)
@@ -594,8 +632,20 @@ def _answer(question: str, rows: list[dict[str, Any]], plan: CypherPlan) -> str:
             trimmed.append(r)
         grouped[label] = trimmed
 
+    hist_block = ""
+    if history:
+        turns: list[str] = []
+        for t in history[-4:]:
+            q = str(t.get("question") or "").strip()
+            a = str(t.get("answer") or "").strip()
+            if q:
+                turns.append(f"- Q: {q}\n  A: {a[:240]}")
+        if turns:
+            hist_block = "Previous conversation:\n" + "\n".join(turns) + "\n\n"
+
     context = json.dumps(grouped, default=str, ensure_ascii=False, indent=2)
     user = (
+        f"{hist_block}"
         f"Question: {question}\n\n"
         f"Intent: {plan.intent}\n"
         f"Cypher plan source: {plan.source}\n\n"
@@ -637,19 +687,90 @@ def _flatten_match(row: dict[str, Any], store: AppState) -> dict[str, Any] | Non
     return None
 
 
-def run_pipeline(question: str, store: AppState, *, limit: int = 50) -> PipelineResult:
-    plan = plan_cypher(question, store)
+_PRONOUN_RE = re.compile(
+    r"\b(selected|current|this|that|it|its|the node|the incident|the one)\b",
+    re.IGNORECASE,
+)
+_INC_ID_RE = re.compile(r"\bINC-\d{4}-\d{3,5}\b", re.IGNORECASE)
+
+
+def _resolve_selected_context(
+    question: str,
+    selected_id: str | None,
+    history: list[dict[str, Any]] | None = None,
+) -> tuple[str, str | None]:
+    """Inject the selected-node / conversation context into the question so
+    the LLM and heuristic parser can resolve pronouns like "this", "it",
+    "selected node", "those", "the same".
+
+    Precedence when the question contains a pronoun and no explicit ID:
+      1. `selected_id` (current node in the UI)
+      2. Most recent incident ID mentioned in `history[-1].matchIds`
+      3. No change.
+
+    Returns `(rewritten_question, resolved_incident_id_or_None)`.
+    """
+    if _INC_ID_RE.search(question):
+        return question, None
+
+    # ---- 1. explicit selected node ----
+    if selected_id:
+        if _INC_ID_RE.fullmatch(selected_id.strip()):
+            inc_id = selected_id.strip().upper()
+            if _PRONOUN_RE.search(question):
+                rewritten = _PRONOUN_RE.sub(inc_id, question, count=1)
+            else:
+                rewritten = f"{question} (about {inc_id})"
+            return rewritten, inc_id
+        if ":" in selected_id:
+            label, _, name = selected_id.partition(":")
+            return f"{question} (about {label.lower()} '{name}')", None
+        return f"{question} (context: {selected_id})", None
+
+    # ---- 2. infer anchor from conversation history ----
+    if history and _PRONOUN_RE.search(question):
+        for turn in reversed(history):
+            for mid in (turn.get("matchIds") or []):
+                if mid and _INC_ID_RE.fullmatch(str(mid)):
+                    inc_id = str(mid).upper()
+                    rewritten = _PRONOUN_RE.sub(inc_id, question, count=1)
+                    return rewritten, inc_id
+            for aid in (turn.get("anchorIds") or []):
+                if aid and _INC_ID_RE.fullmatch(str(aid)):
+                    inc_id = str(aid).upper()
+                    rewritten = _PRONOUN_RE.sub(inc_id, question, count=1)
+                    return rewritten, inc_id
+            break  # only last turn
+
+    return question, None
+
+
+def run_pipeline(
+    question: str,
+    store: AppState,
+    *,
+    limit: int = 50,
+    selected_id: str | None = None,
+    history: list[dict[str, Any]] | None = None,
+) -> PipelineResult:
+    # Resolve pronouns like "selected node" / "it" / "this" / "those" using
+    # both the UI's current selection and the prior conversation.
+    effective_q, forced_anchor = _resolve_selected_context(
+        question, selected_id, history=history
+    )
+
+    plan = plan_cypher(effective_q, store, history=history)
     try:
         rows = _execute(plan)
     except Exception as e:  # noqa: BLE001
         log.warning("Cypher execution failed (%s); retrying with heuristic plan.", e)
-        plan = _heuristic_plan(question, store)
+        plan = _heuristic_plan(effective_q, store)
         try:
             rows = _execute(plan)
         except Exception:  # noqa: BLE001
             rows = []
 
-    rows = _rerank(question, rows, store)[:limit]
+    rows = _rerank(effective_q, rows, store)[:limit]
 
     matches: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -661,8 +782,7 @@ def run_pipeline(question: str, store: AppState, *, limit: int = 50) -> Pipeline
 
     match_ids = [m["id"] for m in matches if m["type"] == "Incident"]
 
-    # Anchor entities from the question's vocabulary (reuse heuristic parser).
-    gq = parse_query(question, store)
+    gq = parse_query(effective_q, store)
     anchor_ids: list[str] = []
     for val, label in (
         (gq.service, "Service"),
@@ -674,8 +794,13 @@ def run_pipeline(question: str, store: AppState, *, limit: int = 50) -> Pipeline
             nid = f"{label}:{val}"
             if store.graph.has_node(nid):
                 anchor_ids.append(nid)
+    if forced_anchor and forced_anchor not in anchor_ids:
+        anchor_ids.append(forced_anchor)
+    if selected_id and ":" in selected_id and store.graph.has_node(selected_id) \
+            and selected_id not in anchor_ids:
+        anchor_ids.append(selected_id)
 
-    answer = _answer(question, rows, plan)
+    answer = _answer(effective_q, rows, plan, history=history)
 
     return PipelineResult(
         question=question,
