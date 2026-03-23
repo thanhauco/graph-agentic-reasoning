@@ -102,14 +102,18 @@ Rules:
   - OUTPUT MUST BE A SINGLE JSON OBJECT — no prose, no markdown fences.
   - JSON keys: {"intent": string, "steps": [{"label": string, "cypher": string, "params": object}], "explanation": string}.
   - `intent` is one of: lookup | list | multi_hop | aggregate | path | compare | trend.
-  - `steps` is an ORDERED list of 1–3 read-only Cypher queries.
+  - `steps` is an ORDERED list of 1–4 read-only Cypher queries.
     * Use ONE step for simple lookups/lists.
     * Use MULTIPLE steps when the question has multiple parts. For example,
       "what happened to INC-X and similar incidents" → step 1 lookup of X
       with full properties, step 2 similar via shared rootCauseCategory /
       service / LINKED_TO / IN_COMMUNITY.
-    * Each step must have a short snake_case `label` like "target", "similar",
-      "by_root_cause", "neighbors".
+    * For questions asking "how many nodes connect" / "how many neighbors"
+      / "connected to it" add steps labeled "neighbors_count" (single row
+      with `count(DISTINCT n) AS neighborCount`) and "neighbors_by_type"
+      (breakdown `nodeType, relation, cnt`).
+    * Each step must have a short snake_case `label`. Known labels:
+      "target", "similar", "neighbors_count", "neighbors_by_type", "main".
   - Cypher MUST be READ-ONLY. Allowed: MATCH, OPTIONAL MATCH, WHERE, WITH,
     RETURN, ORDER BY, LIMIT, UNWIND. FORBIDDEN: CREATE, MERGE, DELETE, SET,
     REMOVE, DROP, CALL dbms, CALL db.
@@ -268,18 +272,25 @@ _PEER_INCIDENT_RETURN = (
 def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
     gq = parse_query(question, store)
     steps: list[dict[str, Any]] = []
+    ql = question.lower()
+    wants_similar = any(k in ql for k in ("similar", "related", "like this", "like it"))
+    wants_neighbors = any(
+        k in ql for k in (
+            "how many", "neighbor", "neighbour", "connect", "connected",
+            "connection", "linked", "related nodes", "relationships",
+            "edges", "around it", "around this",
+        )
+    )
 
-    # ----- lookup + similar incidents (multi-hop or plain lookup with anchor) -----
+    # ----- lookup + optional similar + optional neighbor count -----
     if gq.incidentId and gq.intent in {"multi_hop", "lookup"}:
         inc_id = gq.incidentId.upper()
-        # Step 1: full target details
         steps.append({
             "label": "target",
             "cypher": f"MATCH (i:Incident {{incidentId: $incidentId}}) RETURN {_RICH_INCIDENT_RETURN} LIMIT 1",
             "params": {"incidentId": inc_id},
         })
-        if gq.intent == "multi_hop" or "similar" in question.lower() or "related" in question.lower():
-            # Step 2: peers via shared root cause / service / direct link / community
+        if gq.intent == "multi_hop" or wants_similar:
             steps.append({
                 "label": "similar",
                 "cypher": (
@@ -297,17 +308,82 @@ def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
                 ),
                 "params": {"incidentId": inc_id},
             })
-        explanation = (
-            "Looked up target incident, then found peers sharing root cause, service, "
-            "direct LINKED_TO edges, or the same community."
-            if len(steps) > 1 else
-            "Looked up target incident by ID."
-        )
+        if wants_neighbors:
+            # Total count across all relationship types.
+            steps.append({
+                "label": "neighbors_count",
+                "cypher": (
+                    "MATCH (i:Incident {incidentId: $incidentId})--(n) "
+                    "RETURN count(DISTINCT n) AS neighborCount"
+                ),
+                "params": {"incidentId": inc_id},
+            })
+            # Breakdown by neighbor label and relationship type.
+            steps.append({
+                "label": "neighbors_by_type",
+                "cypher": (
+                    "MATCH (i:Incident {incidentId: $incidentId})-[r]-(n) "
+                    "WITH labels(n)[0] AS nodeType, type(r) AS relation, "
+                    "     count(DISTINCT n) AS cnt "
+                    "RETURN nodeType, relation, cnt "
+                    "ORDER BY cnt DESC LIMIT 20"
+                ),
+                "params": {"incidentId": inc_id},
+            })
+        parts = []
+        if any(s["label"] == "target" for s in steps):
+            parts.append("target incident details")
+        if any(s["label"] == "similar" for s in steps):
+            parts.append("peers sharing root cause/service/community or linked")
+        if any(s["label"] == "neighbors_count" for s in steps):
+            parts.append("neighbor count and breakdown by type")
+        explanation = "Looked up " + ", ".join(parts) + "."
         return CypherPlan(
-            intent=gq.intent or "multi_hop",
+            intent=gq.intent or ("multi_hop" if len(steps) > 1 else "lookup"),
             cypher=steps[0]["cypher"],
             params=steps[0]["params"],
             explanation=explanation,
+            source="heuristic",
+            steps=steps,
+        )
+
+    # ----- entity anchor + neighbor count (e.g. Service/Team/Region node) -----
+    # The question came in with no incident ID, but run_pipeline may have
+    # appended "(about service 'Storage')" context when an entity was selected.
+    # Heuristic parser will populate gq.service/team/region from that hint.
+    if wants_neighbors and (gq.service or gq.team or gq.region or gq.rootCause):
+        if gq.service:
+            anchor_label, anchor_name = "Service", gq.service
+        elif gq.team:
+            anchor_label, anchor_name = "Team", gq.team
+        elif gq.region:
+            anchor_label, anchor_name = "Region", gq.region
+        else:
+            anchor_label, anchor_name = "RootCauseCategory", gq.rootCause  # type: ignore[assignment]
+        steps.append({
+            "label": "neighbors_count",
+            "cypher": (
+                f"MATCH (a:{anchor_label} {{name: $name}})--(n) "
+                "RETURN count(DISTINCT n) AS neighborCount"
+            ),
+            "params": {"name": anchor_name},
+        })
+        steps.append({
+            "label": "neighbors_by_type",
+            "cypher": (
+                f"MATCH (a:{anchor_label} {{name: $name}})-[r]-(n) "
+                "WITH labels(n)[0] AS nodeType, type(r) AS relation, "
+                "     count(DISTINCT n) AS cnt "
+                "RETURN nodeType, relation, cnt "
+                "ORDER BY cnt DESC LIMIT 20"
+            ),
+            "params": {"name": anchor_name},
+        })
+        return CypherPlan(
+            intent="neighbors",
+            cypher=steps[0]["cypher"],
+            params=steps[0]["params"],
+            explanation=f"Counted nodes connected to {anchor_label} '{anchor_name}'.",
             source="heuristic",
             steps=steps,
         )
@@ -553,23 +629,34 @@ about incident data.
 
 You receive:
   - The original question.
-  - Rows returned by one or more Cypher queries, GROUPED BY step label
-    (e.g. "target" = the specific incident asked about; "similar" = peer
-    incidents found via shared root cause / service / direct links /
-    community). Field `_semantic` (when present) is the cosine similarity
-    of each peer to the user's question.
+  - Rows returned by one or more Cypher queries, GROUPED BY step label.
+    Known step labels:
+      * "target"            — the specific incident asked about
+      * "similar"           — peers found via shared root cause / service /
+                              LINKED_TO / community
+      * "neighbors_count"   — one row with { neighborCount: <int> } counting
+                              distinct nodes directly connected to the target
+      * "neighbors_by_type" — breakdown rows { nodeType, relation, cnt }
+      * "main"              — a generic filtered list
+    Field `_semantic` (when present) is the cosine similarity of each peer
+    to the user's question.
 
 Write a grounded answer:
-  1. Directly address EVERY part of the question.
+  1. Directly address EVERY part of the question — if the user asked
+     multiple things (e.g. "what happened to X and how many nodes connect
+     to it"), answer EACH part in its own paragraph or sentence.
   2. If a "target" row is present, summarize it FIRST in 1–2 sentences using
-     its title, severity, service/region/team, status, root cause, mitigation,
+     title, severity, service/region/team, status, root cause, mitigation,
      and (if available) description and impactedCustomers. Cite its ID.
-  3. If "similar" / peer rows are present, describe the shared pattern
-     (common service, root cause, or mitigation) in 1–2 sentences and list
-     3–5 most relevant peer incident IDs inline.
-  4. Use bullet points only when listing 3+ peers. Otherwise write prose.
-  5. Never invent facts. If a section has no rows, say so briefly.
-  6. Keep the total answer under ~160 words.
+  3. If "neighbors_count" is present, explicitly state the total neighbor
+     count. If "neighbors_by_type" is present, list the top 3–5 breakdowns
+     as "<cnt> <nodeType> via <relation>".
+  4. If "similar" / peer rows are present, describe the shared pattern in
+     1–2 sentences and list 3–5 most relevant peer incident IDs inline.
+  5. Use bullet points only when listing 3+ peers or 3+ breakdown rows.
+     Otherwise write prose.
+  6. Never invent facts. If a section has no rows, say so briefly.
+  7. Keep the total answer under ~180 words.
 """
 
 
@@ -594,13 +681,35 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
         parts.append(" · ".join(b for b in bits if b))
         if tgt.get("description"):
             parts.append(str(tgt["description"]))
-    sim = by_step.get("similar") or by_step.get("main") or []
+
+    # --- neighbor count / breakdown ---
+    nc_rows = by_step.get("neighbors_count") or []
+    nb_rows = by_step.get("neighbors_by_type") or []
+    if nc_rows:
+        total = nc_rows[0].get("neighborCount")
+        if total is not None:
+            line = f"Connected to **{total}** nodes"
+            if nb_rows:
+                top = [
+                    f"{r.get('cnt')} {r.get('nodeType')} via {r.get('relation')}"
+                    for r in nb_rows[:5]
+                    if r.get("cnt") and r.get("nodeType")
+                ]
+                if top:
+                    line += " — " + "; ".join(top)
+            parts.append(line + ".")
+
+    # --- similar peers ---
+    sim = by_step.get("similar") or (
+        by_step.get("main") if not tgt and not nc_rows else []
+    ) or []
     sim = [r for r in sim if r.get("incidentId") and (not tgt or r.get("incidentId") != tgt.get("incidentId"))]
     if sim:
         ids = ", ".join(str(r["incidentId"]) for r in sim[:5])
         parts.append(f"Similar incidents ({len(sim)}): {ids}.")
-    elif tgt:
+    elif tgt and "similar" in by_step:
         parts.append("No similar peers found in the current graph.")
+
     return "\n\n".join(parts) if parts else f"Found {len(rows)} result(s)."
 
 
