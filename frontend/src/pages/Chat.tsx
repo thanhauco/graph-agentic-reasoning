@@ -58,6 +58,38 @@ export default function Chat() {
     if (!q.trim() || busy) return;
     setBusy(true);
     setEvents([]);
+
+    // Build a compact history from the prior conversation (last 4 turns).
+    // Each turn is matched: user message → assistant message (which holds the
+    // citations). Skip any currently-streaming assistant placeholder.
+    const priorTurns: Array<{ question: string; answer?: string; citations?: string[] }> = [];
+    for (let i = 0; i < messages.length - 1; i++) {
+      const u = messages[i];
+      const a = messages[i + 1];
+      if (u?.role === "user" && a?.role === "assistant" && !a.streaming) {
+        priorTurns.push({
+          question: u.text,
+          answer: a.text,
+          citations: a.citations ?? [],
+        });
+        i += 1; // skip the assistant message we just consumed
+      }
+    }
+    const history = priorTurns.slice(-4);
+
+    // Reuse the Explorer's selected node when available so "this / selected"
+    // in the chat resolves to the node the user is looking at.
+    let selectedId: string | null = null;
+    try {
+      const raw = sessionStorage.getItem("explorer.state.v1");
+      if (raw) {
+        const s = JSON.parse(raw) as { selected?: string | null };
+        selectedId = s.selected ?? null;
+      }
+    } catch {
+      /* ignore */
+    }
+
     setMessages((m) => [
       ...m,
       { role: "user", text: q },
@@ -99,6 +131,7 @@ export default function Chat() {
           }
         },
         ctrl.signal,
+        { selectedId, history },
       );
     } catch (e: any) {
       setMessages((m) => {

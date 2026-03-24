@@ -16,6 +16,7 @@ from typing import Any, AsyncIterator
 
 from app.agent import prompts
 from app.agent.nl_query import GraphQuery, parse_query, to_filters
+from app.agent.nl2cypher import _resolve_selected_context
 from app.config import get_settings
 from app.graphrag import tools as tool_registry
 from app.state import AppState
@@ -599,7 +600,13 @@ def _collect_citations(evidence: list[dict[str, Any]]) -> list[str]:
 
 # ---------- Public entrypoint ----------
 
-async def run_agent(store: AppState, question: str) -> AsyncIterator[dict[str, Any]]:
+async def run_agent(
+    store: AppState,
+    question: str,
+    *,
+    history: list[dict[str, Any]] | None = None,
+    selected_id: str | None = None,
+) -> AsyncIterator[dict[str, Any]]:
     session_id = uuid.uuid4().hex[:12]
     started = time.time()
     tools = tool_registry.make_tools(store)
@@ -612,10 +619,51 @@ async def run_agent(store: AppState, question: str) -> AsyncIterator[dict[str, A
         trace.append(event)
         return event
 
-    yield _emit({"type": "session", "question": question})
+    # Resolve pronouns ("it", "this", "selected", "those") using both the UI's
+    # current selection and the prior conversation. The rewritten question is
+    # what every downstream prompt / parser / tool sees; the original remains
+    # in the session event for transparency.
+    effective_q, forced_anchor = _resolve_selected_context(
+        question, selected_id, history=history
+    )
+    yield _emit({
+        "type": "session",
+        "question": question,
+        "effectiveQuestion": effective_q if effective_q != question else None,
+        "selectedId": selected_id,
+        "historyTurns": len(history or []),
+    })
+
+    # Build a compact conversation block reused by planner/executor/synth prompts.
+    conv_block = ""
+    if history:
+        lines: list[str] = []
+        for t in history[-4:]:
+            q = str(t.get("question") or "").strip()
+            a = str(t.get("answer") or "").strip()
+            cites = ", ".join(list(t.get("citations") or t.get("matchIds") or [])[:5])
+            if q:
+                line = f"- Q: {q}\n  A: {a[:240]}"
+                if cites:
+                    line += f"\n  cited: {cites}"
+                lines.append(line)
+        if lines:
+            conv_block = (
+                "Recent conversation (oldest → newest). Use it to resolve "
+                "pronouns/follow-ups like 'those', 'these', 'the same', "
+                "'more like that':\n" + "\n".join(lines) + "\n\n"
+            )
+
+    question_for_prompts = (
+        conv_block + ("Question: " + effective_q if conv_block else effective_q)
+    )
 
     # 0. Parse NL → structured graph query (always runs; grounds the whole agent).
-    gq: GraphQuery = parse_query(question, store)
+    gq: GraphQuery = parse_query(effective_q, store)
+    if forced_anchor and not gq.incidentId:
+        gq.incidentId = forced_anchor
+        if not gq.anchorId:
+            gq.anchorId = forced_anchor
     yield _emit({
         "type": "graph_query",
         "query": gq.to_dict(),
@@ -625,7 +673,7 @@ async def run_agent(store: AppState, question: str) -> AsyncIterator[dict[str, A
     # 1. Planner — prefer the LLM when configured, else use the structured query.
     heur_plan = _plan_from_query(gq)
     if get_settings().has_azure_openai:
-        plan_raw = _llm_chat(prompts.PLANNER_SYSTEM, question, max_tokens=400)
+        plan_raw = _llm_chat(prompts.PLANNER_SYSTEM, question_for_prompts, max_tokens=400)
         plan = _parse_json(plan_raw) or heur_plan
     else:
         plan = heur_plan
@@ -690,7 +738,7 @@ async def run_agent(store: AppState, question: str) -> AsyncIterator[dict[str, A
 
             # Decide next action.
             exec_prompt = prompts.EXECUTOR_SYSTEM.format(tools=tool_desc, evidence=_evidence_text(evidence) or "(none)")
-            decision_raw = _llm_chat(exec_prompt, question, max_tokens=220)
+            decision_raw = _llm_chat(exec_prompt, question_for_prompts, max_tokens=220)
             decision = _parse_json(decision_raw)
             thought = decision.get("thought", "")
             if thought:
@@ -708,8 +756,10 @@ async def run_agent(store: AppState, question: str) -> AsyncIterator[dict[str, A
     # 3. Synthesis (streamed)
     ctx = _evidence_text(evidence)
     synth_user = (
-        f"QUESTION:\n{question}\n\n"
-        f"EVIDENCE (only use IDs from this list):\n{ctx or '(no evidence)'}\n"
+        (conv_block if conv_block else "")
+        + f"QUESTION:\n{effective_q}\n\n"
+        + (f"SELECTED NODE: {selected_id}\n\n" if selected_id else "")
+        + f"EVIDENCE (only use IDs from this list):\n{ctx or '(no evidence)'}\n"
     )
     answer_chunks: list[str] = []
     async for tok in _llm_stream(prompts.SYNTHESIZER_SYSTEM, synth_user, max_tokens=700):

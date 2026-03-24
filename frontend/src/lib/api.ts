@@ -136,11 +136,19 @@ export async function streamChat(
   question: string,
   onEvent: (ev: AgentEvent) => void,
   signal?: AbortSignal,
+  opts: {
+    selectedId?: string | null;
+    history?: Array<{ question: string; answer?: string; citations?: string[]; matchIds?: string[] }>;
+  } = {},
 ): Promise<void> {
   const resp = await fetch(`${BASE}/chat/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({
+      question,
+      selectedId: opts.selectedId ?? null,
+      history: opts.history ?? [],
+    }),
     signal,
   });
   if (!resp.body) throw new Error("No response body");
