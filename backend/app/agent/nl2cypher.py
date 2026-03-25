@@ -282,6 +282,90 @@ def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
         )
     )
 
+    # ----- relationship / path between TWO incidents -----
+    inc_ids_found = [m.upper() for m in _INC_ID_RE.findall(question)]
+    # Deduplicate preserving order.
+    seen: set[str] = set()
+    inc_ids_unique: list[str] = []
+    for iid in inc_ids_found:
+        if iid not in seen:
+            seen.add(iid)
+            inc_ids_unique.append(iid)
+    if len(inc_ids_unique) >= 2:
+        src, dst = inc_ids_unique[0], inc_ids_unique[1]
+        # Step 1: direct LINKED_TO edge (and any direct relationship).
+        steps.append({
+            "label": "direct_link",
+            "cypher": (
+                "MATCH (a:Incident {incidentId: $src}), (b:Incident {incidentId: $dst}) "
+                "OPTIONAL MATCH p = (a)-[r]-(b) "
+                "RETURN a.incidentId AS src, b.incidentId AS dst, "
+                "       collect(DISTINCT type(r)) AS directRelations, "
+                "       count(r) AS directEdgeCount"
+            ),
+            "params": {"src": src, "dst": dst},
+        })
+        # Step 2: shortest path (up to 6 hops) through any nodes.
+        steps.append({
+            "label": "shortest_path",
+            "cypher": (
+                "MATCH (a:Incident {incidentId: $src}), (b:Incident {incidentId: $dst}) "
+                "MATCH p = (a)-[*BFS..6]-(b) "
+                "WITH p, nodes(p) AS ns, relationships(p) AS rs "
+                "RETURN size(rs) AS pathLength, "
+                "       [n IN ns | coalesce(n.incidentId, n.name, n.communityId)] AS nodeLabels, "
+                "       [n IN ns | labels(n)[0]] AS nodeTypes, "
+                "       [r IN rs | type(r)] AS relations "
+                "ORDER BY pathLength ASC LIMIT 1"
+            ),
+            "params": {"src": src, "dst": dst},
+        })
+        # Step 3: shared neighbors / context (service/region/team/rootCause/community).
+        steps.append({
+            "label": "shared_context",
+            "cypher": (
+                "MATCH (a:Incident {incidentId: $src}), (b:Incident {incidentId: $dst}) "
+                "OPTIONAL MATCH (a)-[:BELONGS_TO]->(sa:Service), (b)-[:BELONGS_TO]->(sb:Service) "
+                "OPTIONAL MATCH (a)-[:IN_REGION]->(ra:Region), (b)-[:IN_REGION]->(rb:Region) "
+                "OPTIONAL MATCH (a)-[:OWNED_BY]->(ta:Team), (b)-[:OWNED_BY]->(tb:Team) "
+                "OPTIONAL MATCH (a)-[:HAS_ROOT_CAUSE]->(rca:RootCauseCategory), "
+                "               (b)-[:HAS_ROOT_CAUSE]->(rcb:RootCauseCategory) "
+                "OPTIONAL MATCH (a)-[:IN_COMMUNITY]->(ca:Community)<-[:IN_COMMUNITY]-(b) "
+                "RETURN a.service AS srcService, b.service AS dstService, "
+                "       a.region AS srcRegion, b.region AS dstRegion, "
+                "       a.team AS srcTeam, b.team AS dstTeam, "
+                "       a.rootCauseCategory AS srcRootCause, b.rootCauseCategory AS dstRootCause, "
+                "       collect(DISTINCT ca.communityId) AS sharedCommunities, "
+                "       (a.service = b.service) AS sameService, "
+                "       (a.region = b.region) AS sameRegion, "
+                "       (a.team = b.team) AS sameTeam, "
+                "       (a.rootCauseCategory = b.rootCauseCategory) AS sameRootCause"
+            ),
+            "params": {"src": src, "dst": dst},
+        })
+        # Step 4: detailed rows for both incidents so the answerer can cite them.
+        steps.append({
+            "label": "endpoints",
+            "cypher": (
+                "MATCH (i:Incident) WHERE i.incidentId IN [$src, $dst] "
+                f"RETURN {_RICH_INCIDENT_RETURN} "
+                "ORDER BY i.incidentId"
+            ),
+            "params": {"src": src, "dst": dst},
+        })
+        return CypherPlan(
+            intent="path",
+            cypher=steps[0]["cypher"],
+            params=steps[0]["params"],
+            explanation=(
+                f"Checked for a direct edge between {src} and {dst}, then "
+                "computed the shortest path (≤6 hops) and surfaced any shared "
+                "service/region/team/root-cause/community context."
+            ),
+            source="heuristic",
+            steps=steps,
+        )
+
     # ----- lookup + optional similar + optional neighbor count -----
     if gq.incidentId and gq.intent in {"multi_hop", "lookup"}:
         inc_id = gq.incidentId.upper()
@@ -667,6 +751,77 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
     for r in rows:
         by_step.setdefault(r.get("_step") or "main", []).append(r)
     parts: list[str] = []
+
+    # --- path / relationship between two incidents ---
+    if "direct_link" in by_step or "shortest_path" in by_step or "shared_context" in by_step:
+        direct = (by_step.get("direct_link") or [{}])[0]
+        src = direct.get("src")
+        dst = direct.get("dst")
+        if not src or not dst:
+            # Fallback: pull endpoints.
+            ep = by_step.get("endpoints") or []
+            if len(ep) >= 2:
+                src, dst = ep[0].get("incidentId"), ep[1].get("incidentId")
+
+        direct_rels = direct.get("directRelations") or []
+        direct_rels = [r for r in direct_rels if r]
+        if direct_rels:
+            parts.append(f"**{src} ↔ {dst}** are directly connected via `{', '.join(direct_rels)}`.")
+        else:
+            parts.append(f"**{src} ↔ {dst}**: no direct edge between them.")
+
+        sp = (by_step.get("shortest_path") or [{}])[0]
+        plen = sp.get("pathLength")
+        labels = sp.get("nodeLabels") or []
+        types = sp.get("nodeTypes") or []
+        rels = sp.get("relations") or []
+        if plen is not None and labels:
+            hop_parts: list[str] = []
+            for i, lab in enumerate(labels):
+                typ = types[i] if i < len(types) else ""
+                hop_parts.append(f"{lab}[{typ}]")
+                if i < len(rels):
+                    hop_parts.append(f"-({rels[i]})-")
+            parts.append(f"Shortest path (length {plen}): " + " ".join(hop_parts))
+        elif direct_rels:
+            pass  # already covered
+        else:
+            parts.append("No path (≤ 6 hops) found between them in the graph.")
+
+        ctx = (by_step.get("shared_context") or [{}])[0]
+        shared: list[str] = []
+        if ctx.get("sameService") and ctx.get("srcService"):
+            shared.append(f"same service **{ctx['srcService']}**")
+        elif ctx.get("srcService") or ctx.get("dstService"):
+            shared.append(f"services {ctx.get('srcService')} vs {ctx.get('dstService')}")
+        if ctx.get("sameRegion") and ctx.get("srcRegion"):
+            shared.append(f"same region **{ctx['srcRegion']}**")
+        elif ctx.get("srcRegion") or ctx.get("dstRegion"):
+            shared.append(f"regions {ctx.get('srcRegion')} vs {ctx.get('dstRegion')}")
+        if ctx.get("sameTeam") and ctx.get("srcTeam"):
+            shared.append(f"same team **{ctx['srcTeam']}**")
+        if ctx.get("sameRootCause") and ctx.get("srcRootCause"):
+            shared.append(f"same root cause **{ctx['srcRootCause']}**")
+        elif ctx.get("srcRootCause") or ctx.get("dstRootCause"):
+            shared.append(f"root causes {ctx.get('srcRootCause')} vs {ctx.get('dstRootCause')}")
+        sc = [c for c in (ctx.get("sharedCommunities") or []) if c]
+        if sc:
+            shared.append(f"shared community {', '.join(sc)}")
+        if shared:
+            parts.append("Shared context: " + "; ".join(shared) + ".")
+
+        endpoints = by_step.get("endpoints") or []
+        for ep in endpoints[:2]:
+            bits = [
+                f"**{ep.get('incidentId')}** — {ep.get('title') or ''}".strip(),
+                f"Sev{ep.get('severity')}" if ep.get("severity") is not None else None,
+                f"{ep.get('service') or ''}/{ep.get('region') or ''}".strip("/"),
+                f"root cause: {ep.get('rootCauseCategory')}" if ep.get("rootCauseCategory") else None,
+                f"status {ep.get('status')}" if ep.get("status") else None,
+            ]
+            parts.append(" · ".join(b for b in bits if b))
+        return "\n\n".join(parts)
+
     tgt = (by_step.get("target") or [None])[0]
     if tgt:
         bits = [
@@ -797,7 +952,23 @@ def _flatten_match(row: dict[str, Any], store: AppState) -> dict[str, Any] | Non
 
 
 _PRONOUN_RE = re.compile(
-    r"\b(selected|current|this|that|it|its|the node|the incident|the one)\b",
+    # Only anaphoric pronouns that clearly refer back to something the user
+    # already brought up. We deliberately omit bare "that" / "it" since they
+    # are ubiquitous relative pronouns in English ("incidents that impact...",
+    # "show the service it belongs to") and cause false positives on
+    # aggregate / structural questions.
+    r"\b("
+    r"selected(?:\s+(?:node|incident|one))?|"
+    r"currently\s+selected|"
+    r"this\s+(?:node|incident|one|service|team|region|issue|problem)|"
+    r"that\s+(?:node|incident|one|service|team|region|issue|problem)|"
+    r"the\s+(?:selected|current|above|previous)(?:\s+(?:node|incident|one))?|"
+    r"the\s+node|the\s+incident|the\s+one|"
+    r"(?:like|about|to)\s+(?:this|that|it)|"
+    r"(?:similar|related|more)\s+(?:to\s+)?(?:this|that|it|these|those|ones?)|"
+    r"(?:similar|related)\s+ones?|"
+    r"these|those"
+    r")\b",
     re.IGNORECASE,
 )
 _INC_ID_RE = re.compile(r"\bINC-\d{4}-\d{3,5}\b", re.IGNORECASE)
@@ -823,10 +994,30 @@ def _resolve_selected_context(
         return question, None
 
     # ---- 1. explicit selected node ----
-    if selected_id:
+    # Only inject selected-node context when the question is clearly ABOUT
+    # the selected node. Otherwise the selection silently pollutes aggregate
+    # / structural questions like "incidents impacting >= 2 teams".
+    has_pronoun = bool(_PRONOUN_RE.search(question))
+    # Short follow-up questions (≤ 7 words) without their own structural
+    # keywords are almost always about the currently selected node.
+    word_count = len(re.findall(r"\w+", question))
+    has_structural = bool(re.search(
+        r"\b(find|list|all|any|top|most|min|at least|at most|more than|"
+        r"greater than|fewer than|less than|how many|count|where|with|"
+        r"impact(?:s|ing|ed)?|involve|involves|group|aggregate)\b",
+        question, re.IGNORECASE,
+    ))
+    short_anchor_fallback = (
+        selected_id is not None
+        and not has_pronoun
+        and not has_structural
+        and word_count <= 7
+    )
+
+    if selected_id and (has_pronoun or short_anchor_fallback):
         if _INC_ID_RE.fullmatch(selected_id.strip()):
             inc_id = selected_id.strip().upper()
-            if _PRONOUN_RE.search(question):
+            if has_pronoun:
                 rewritten = _PRONOUN_RE.sub(inc_id, question, count=1)
             else:
                 rewritten = f"{question} (about {inc_id})"

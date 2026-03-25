@@ -208,6 +208,66 @@ def _plan_from_query(gq: GraphQuery) -> dict[str, Any]:
             "firstTool": {"name": "temporal_filter", "args": args},
             "toolChain": [{"name": "temporal_filter", "args": args}],
         }
+    # 4b. Aggregate / structural question — delegate to read-only Cypher.
+    ql = (gq.question or "").lower()
+    agg_pat = re.compile(
+        r"\b(how many|count of|count\(|at least|at most|min\s+\d+|minimum of|"
+        r"more than|greater than|>=|<=|fewer than|less than|"
+        r"impact(?:s|ing|ed)?\s+\d+|impact(?:s|ing|ed)?\s+(?:multiple|more|min|at)|"
+        r"spanning|span(?:s|ned)?|across\s+\d+|per\s+(?:month|team|service|region))\b"
+    )
+    if agg_pat.search(ql):
+        # Extract threshold N (default 2) and dimension (team/service/region).
+        m_n = re.search(r"\b(?:>=|min|at\s*least|more\s+than|greater\s+than)\s*(\d+)", ql)
+        threshold = int(m_n.group(1)) if m_n else 2
+        # Strict "more than N" means >= N+1.
+        if m_n and "more than" in ql:
+            threshold = threshold + 1
+        # Pick dimension (teams default).
+        dim = "teams"
+        dim_rel = "OWNED_BY"
+        dim_label = "Team"
+        if re.search(r"\b(services?|products?)\b", ql):
+            dim, dim_rel, dim_label = "services", "BELONGS_TO", "Service"
+        elif re.search(r"\b(regions?|geographies?)\b", ql):
+            dim, dim_rel, dim_label = "regions", "IN_REGION", "Region"
+        cypher_main = (
+            f"MATCH (i:Incident)-[:{dim_rel}]->(x:{dim_label}) "
+            f"WITH i, collect(DISTINCT x.name) AS {dim}, count(DISTINCT x) AS {dim[:-1]}Count "
+            f"WHERE {dim[:-1]}Count >= $n "
+            f"RETURN i.incidentId AS incidentId, i.title AS title, i.severity AS severity, "
+            f"       i.service AS service, i.region AS region, i.status AS status, "
+            f"       {dim}, {dim[:-1]}Count "
+            f"ORDER BY {dim[:-1]}Count DESC, i.severity ASC LIMIT 25"
+        )
+        cypher_fallback = (
+            f"MATCH (i:Incident)-[:IN_COMMUNITY]->(c:Community) "
+            f"MATCH (i)-[:{dim_rel}]->(x:{dim_label}) "
+            f"WITH c, collect(DISTINCT x.name) AS {dim}, collect(DISTINCT i.incidentId) AS incidents "
+            f"WHERE size({dim}) >= $n "
+            f"RETURN c.communityId AS communityId, size({dim}) AS {dim[:-1]}Count, "
+            f"       {dim}[..8] AS sample{dim_label}s, incidents[..6] AS sampleIncidents, c.summary AS summary "
+            f"ORDER BY {dim[:-1]}Count DESC LIMIT 10"
+        )
+        return {
+            "mode": "local",
+            "plan": [
+                f"Translate the aggregate question into read-only Cypher (threshold: {dim[:-1]}Count >= {threshold}).",
+                "Execute against Memgraph and collect concrete incident IDs.",
+                f"If no single incident spans >= {threshold} {dim}, fall back to communities that do.",
+                "Answer with honest, grounded counts and citations.",
+            ],
+            "firstTool": {
+                "name": "cypher_query",
+                "args": {"cypher": cypher_main, "params": {"n": threshold}},
+            },
+            "toolChain": [
+                {"name": "cypher_query",
+                 "args": {"cypher": cypher_main, "params": {"n": threshold}}},
+                {"name": "cypher_query",
+                 "args": {"cypher": cypher_fallback, "params": {"n": threshold}}},
+            ],
+        }
     # 5. Default: filtered local search.
     args = {"q": gq.question, "top_k": 10}
     filters = to_filters(gq)
@@ -342,6 +402,97 @@ def _heuristic_synthesis(user: str) -> str:
             for i in incs[:6]:
                 lines.append(f"- [{i['id']}] Sev{i['sev']} {i['svc'].strip()}/{i['reg'].strip()} — {i['title'].strip()}")
         return "\n".join(lines)
+
+    # ---- CYPHER / aggregate answer (honest grounded response) ----
+    cypher_header_re = re.compile(r"^CYPHER\s+(\d+)/(\d+)\s+rows\b", re.MULTILINE)
+    cypher_headers = cypher_header_re.findall(user)
+    if cypher_headers:
+        row_re = re.compile(r"^ROW\s+(.+)$", re.MULTILINE)
+        cypher_rows = row_re.findall(user)
+
+        def _parse_row(line: str) -> dict[str, str]:
+            out: dict[str, str] = {}
+            # Split on ', ' but preserve lists in [..]
+            depth = 0
+            buf: list[str] = []
+            parts: list[str] = []
+            for ch in line:
+                if ch == "[":
+                    depth += 1
+                elif ch == "]":
+                    depth -= 1
+                if ch == "," and depth == 0:
+                    parts.append("".join(buf).strip())
+                    buf = []
+                    continue
+                buf.append(ch)
+            if buf:
+                parts.append("".join(buf).strip())
+            for p in parts:
+                if "=" in p:
+                    k, _, v = p.partition("=")
+                    out[k.strip()] = v.strip()
+            return out
+
+        parsed_rows = [_parse_row(r) for r in cypher_rows]
+        total_first = int(cypher_headers[0][0]) if cypher_headers else 0
+
+        # Case: no incidents match, but community fallback has rows.
+        if total_first == 0 and parsed_rows:
+            lines = [f"## Summary"]
+            lines.append(
+                f"No single incident in the graph matches `{question}`. "
+                f"However, **{len(parsed_rows)}** Louvain community cluster(s) do meet the threshold, "
+                "so the cross-team / cross-service pattern lives at the community level."
+            )
+            lines.append("\n## Communities")
+            for r in parsed_rows[:6]:
+                cid = r.get("communityId") or r.get("id") or "?"
+                cnt = r.get("teamCount") or r.get("serviceCount") or r.get("regionCount") or "?"
+                samples = (r.get("sampleTeams") or r.get("sampleServices") or r.get("sampleRegions") or "").strip("[]")
+                incs_s = (r.get("sampleIncidents") or "").strip("[]")
+                summary = r.get("summary") or ""
+                if len(summary) > 180:
+                    summary = summary[:180] + "…"
+                bullet = f"- [{cid}] count={cnt}"
+                if samples:
+                    bullet += f" · members: {samples}"
+                if incs_s:
+                    bullet += f" · incidents: {incs_s}"
+                if summary:
+                    bullet += f"\n  {summary}"
+                lines.append(bullet)
+            lines.append("\n## Interpretation")
+            lines.append(
+                "Individual incidents in this dataset are each owned by a single team / service, "
+                "so team-level co-impact only emerges when you group related incidents into "
+                "communities. The communities above are the places to look for cross-team blast radius."
+            )
+            lines.append("\n## Recommended Next Steps")
+            lines.append("1. Inspect the top community for shared root-cause signatures.")
+            lines.append("2. Use `drift_search` or `cooccurrence` on the top community's anchor service for narrative context.")
+            lines.append("3. If you need incident-level joins, run a graph query that traverses `LINKED_TO` between incidents.")
+            return "\n".join(lines)
+
+        # Case: incidents do match the aggregate.
+        if parsed_rows and any("incidentId" in r for r in parsed_rows):
+            lines = [f"## Summary",
+                     f"**{total_first}** incident(s) match `{question}`."]
+            lines.append("\n## Matching incidents")
+            for r in parsed_rows[:12]:
+                iid = r.get("incidentId", "?")
+                title = r.get("title", "")
+                svc = r.get("service", "")
+                reg = r.get("region", "")
+                cnt = r.get("teamCount") or r.get("serviceCount") or r.get("regionCount") or ""
+                members = (r.get("teams") or r.get("services") or r.get("regions") or "").strip("[]")
+                bullet = f"- [{iid}] {svc}/{reg} — {title}"
+                if cnt:
+                    bullet += f" · count={cnt}"
+                if members:
+                    bullet += f" · {members}"
+                lines.append(bullet)
+            return "\n".join(lines)
 
     if not incs and not comms:
         ids = list(dict.fromkeys(re.findall(r"INC-2026-\d{4}", user)))
@@ -527,6 +678,37 @@ def _evidence_text(evidence: list[dict[str, Any]]) -> str:
                 cited_ids.add(cid)
                 lines.append(f"[{cid} size={c.get('size')}] {c.get('summary')}")
             continue
+        # cypher_query result (read-only, schema-free rows).
+        if tool == "cypher_query" and isinstance(result, dict):
+            if result.get("error"):
+                lines.append(f"CYPHER ERROR: {str(result['error'])[:200]}")
+                continue
+            rows = result.get("rows") or []
+            total = result.get("total", len(rows))
+            lines.append(
+                f"CYPHER {len(rows)}/{total} rows — cypher: {str(result.get('cypher', ''))[:240]}"
+            )
+            # Surface incident rows through the standard formatter so the
+            # synthesizer can cite them; also show raw rows for structural data.
+            for row in rows[:20]:
+                if isinstance(row, dict) and row.get("incidentId"):
+                    line = _row(row)
+                    if line:
+                        # Append structural extras (teams, services, communities) if present.
+                        extras = []
+                        for k in ("teams", "services", "communities", "neighborCount",
+                                  "nodeType", "relation", "cnt"):
+                            if k in row and row[k] not in (None, [], ""):
+                                extras.append(f"{k}={row[k]}")
+                        if extras:
+                            line = line + " | " + " ".join(extras)
+                        lines.append(line)
+                else:
+                    # Non-incident rows: dump as compact key=value pairs.
+                    pairs = ", ".join(f"{k}={v}" for k, v in (row.items() if isinstance(row, dict) else []))
+                    if pairs:
+                        lines.append(f"ROW {pairs[:240]}")
+            continue
         # Shape A: list of incidents (temporal_filter).
         if isinstance(result, list):
             for inc in result:
@@ -581,6 +763,12 @@ def _collect_citations(evidence: list[dict[str, Any]]) -> list[str]:
         if tool == "cooccurrence" and isinstance(result, dict):
             for c in result.get("communities") or []:
                 _add(c.get("communityId"))
+            continue
+        if tool == "cypher_query" and isinstance(result, dict):
+            for row in result.get("rows") or []:
+                if isinstance(row, dict):
+                    _add(row.get("incidentId"))
+                    _add(row.get("communityId"))
             continue
         if isinstance(result, list):
             for inc in result:
@@ -778,6 +966,16 @@ async def run_agent(
 
 
 def _summarize_result(tool_name: str, result: Any) -> str:
+    if tool_name == "cypher_query" and isinstance(result, dict):
+        if result.get("error"):
+            return f"cypher error: {str(result['error'])[:120]}"
+        rows = result.get("rows") or []
+        if not rows:
+            return "cypher returned 0 rows"
+        # Try to surface first-row keys + a preview
+        keys = list(rows[0].keys())[:6]
+        first = ", ".join(f"{k}={rows[0].get(k)}" for k in keys)
+        return f"{len(rows)} rows (keys: {keys}); first: {first[:160]}"
     if tool_name == "related_incidents" and isinstance(result, dict):
         n = len(result.get("related") or [])
         anchor = (result.get("anchor") or {}).get("incidentId")

@@ -6,10 +6,17 @@ from our LangGraph-style state machine directly.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 from app.graphrag import retriever
 from app.state import AppState
+
+
+_CYPHER_FORBIDDEN = re.compile(
+    r"\b(CREATE|MERGE|DELETE|DETACH|SET|REMOVE|DROP|LOAD|FOREACH|CALL\s+dbms|CALL\s+db\.)\b",
+    re.IGNORECASE,
+)
 
 
 def make_tools(store: AppState) -> dict[str, dict[str, Any]]:
@@ -58,6 +65,31 @@ def make_tools(store: AppState) -> dict[str, dict[str, Any]]:
 
     def _cooccur(anchor: str, dimension: str = "service", top: int = 5) -> dict[str, Any]:
         return retriever.cooccurrence(store, anchor, dimension=dimension, top=top)
+
+    def _cypher(cypher: str, params: dict[str, Any] | None = None, limit: int = 50) -> dict[str, Any]:
+        """Execute a read-only Cypher query against Memgraph and return the rows."""
+        try:
+            from app.graphdb import get_client, is_memgraph_enabled
+        except Exception as e:  # noqa: BLE001
+            return {"error": f"memgraph unavailable: {e}", "rows": []}
+        if not is_memgraph_enabled():
+            return {"error": "memgraph not enabled", "rows": []}
+        if not cypher or not isinstance(cypher, str):
+            return {"error": "cypher must be a non-empty string", "rows": []}
+        if _CYPHER_FORBIDDEN.search(cypher):
+            return {"error": "write/admin statements are not allowed", "rows": []}
+        try:
+            rows = get_client().read(cypher, **(params or {}))
+        except Exception as e:  # noqa: BLE001
+            return {"error": str(e), "cypher": cypher, "params": params or {}, "rows": []}
+        capped = rows[: max(1, int(limit))]
+        return {
+            "cypher": cypher,
+            "params": params or {},
+            "count": len(capped),
+            "total": len(rows),
+            "rows": capped,
+        }
 
     return {
         "local_search": {
@@ -109,6 +141,34 @@ def make_tools(store: AppState) -> dict[str, dict[str, Any]]:
             "fn": _cooccur,
             "description": "Inside Louvain communities containing an anchor (service/region/cause), which peer services/root-causes/regions co-occur most? Use for 'what fails alongside X', 'common dependencies of X'.",
             "args": {"anchor": "string", "dimension": "service|region|rootCause (default service)", "top": "int (default 5)"},
+        },
+        "cypher_query": {
+            "fn": _cypher,
+            "description": (
+                "Execute a READ-ONLY Memgraph Cypher query. USE THIS for aggregate, "
+                "structural, or counting questions that other tools cannot answer "
+                "(e.g. 'incidents impacting >= N teams', 'services with the most "
+                "incidents', 'count by month'). "
+                "Schema: "
+                "(:Incident {incidentId,title,description,severity,status,service,region,team,"
+                "rootCauseCategory,mitigation,createdAt,impactedCustomers}); "
+                "(:Service{name}); (:Region{name}); (:Team{name}); (:Owner{name}); "
+                "(:RootCauseCategory{name}); (:Mitigation{name}); (:Component{name}); "
+                "(:Community{communityId,size,summary}). Relationships: "
+                "(i:Incident)-[:BELONGS_TO]->(:Service), -[:IN_REGION]->(:Region), "
+                "-[:OWNED_BY]->(:Team), -[:ASSIGNED_TO]->(:Owner), "
+                "-[:HAS_ROOT_CAUSE]->(:RootCauseCategory), -[:MITIGATED_BY]->(:Mitigation), "
+                "-[:AFFECTS]->(:Component), -[:LINKED_TO]->(:Incident), -[:IN_COMMUNITY]->(:Community). "
+                "Rules: (1) READ-ONLY — no CREATE/MERGE/SET/DELETE; "
+                "(2) ALWAYS include LIMIT ≤ 50; "
+                "(3) Prefer $params over inline literals; "
+                "(4) Return concrete incidentId values so the synthesizer can cite them."
+            ),
+            "args": {
+                "cypher": "string — read-only Cypher",
+                "params": "object — optional parameters",
+                "limit": "int (default 50)",
+            },
         },
     }
 

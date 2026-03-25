@@ -6,6 +6,11 @@ Given a user question about Azure incidents in 2026, produce a short plan (3-5 b
 Respond ONLY with strict JSON:
 {"mode": "local|global|drift", "plan": ["...","..."], "firstTool": {"name": "<tool>", "args": {...}}}
 Prefer drift_search when the question mentions clusters, storms, cascades, outages, or time periods.
+Prefer cypher_query when the question is aggregate/structural/counting and the other tools cannot answer
+it directly — e.g. "incidents impacting >= N teams", "services with the most incidents", "count of
+incidents per month", "which communities span >= N services". For such questions, set firstTool to
+{"name": "cypher_query", "args": {"cypher": "MATCH ... RETURN ... LIMIT 50", "params": {}}} and make
+sure the Cypher returns concrete incidentId / community / service names so the synthesizer can cite them.
 """
 
 EXECUTOR_SYSTEM = """You are an Azure IcM reasoning executor.
@@ -18,6 +23,9 @@ You already have some evidence:
 Decide the next action. Respond ONLY with strict JSON:
 {{"action": "tool|answer", "tool": {{"name": "...", "args": {{...}}}}, "thought": "one short sentence"}}
 Stop (action=answer) once you have enough evidence to cite 3-6 concrete incidents or communities.
+When a previous tool returned 0 rows, an error, or clearly wrong filters, switch to a different tool
+(especially `cypher_query`) rather than repeating the same call. For aggregate or structural questions
+(counts, thresholds, groupings) prefer `cypher_query` over the text-based search tools.
 """
 
 CRITIC_SYSTEM = """You are an Azure IcM reasoning critic.
