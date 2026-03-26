@@ -4,40 +4,8 @@ import remarkGfm from "remark-gfm";
 import { Send, Sparkles } from "lucide-react";
 import AgentTrace from "@/components/AgentTrace";
 import { streamChat, type AgentEvent } from "@/lib/api";
+import { COMPLEX_MULTI_HOP_QUERIES } from "@/lib/querySuggestions";
 import { Badge, Button, Card, CardContent } from "@/components/ui";
-
-const DEMO_QUERIES: { group: string; items: string[] }[] = [
-  {
-    group: "Lookup & filter",
-    items: [
-      "Tell me everything about INC-2026-0137.",
-      "List all Sev1 Front Door certificate incidents in Q1 2026.",
-    ],
-  },
-  {
-    group: "Multi-hop similarity",
-    items: [
-      "Show incidents similar to INC-2026-0050 and explain the pattern.",
-      "Find incidents related to INC-2026-0137 — what pattern do they share?",
-    ],
-  },
-  {
-    group: "Cross-entity reasoning",
-    items: [
-      "Compare Front Door vs API Management incidents this year.",
-      "What services most often fail alongside Azure OpenAI?",
-      "How are Cosmos DB and AKS connected in the knowledge graph?",
-    ],
-  },
-  {
-    group: "Cluster & executive",
-    items: [
-      "Was there an incident storm in March 2026? What was the shared root cause?",
-      "Which regions had a cascade of Networking or DNS failures, and which teams own them?",
-      "Give me an executive overview of the top Azure reliability themes across 2026 with incident citations.",
-    ],
-  },
-];
 
 type Message = {
   role: "user" | "assistant";
@@ -49,6 +17,7 @@ type Message = {
 
 export default function Chat() {
   const [input, setInput] = useState("");
+  const [querySuggestOpen, setQuerySuggestOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [busy, setBusy] = useState(false);
@@ -167,26 +136,19 @@ export default function Chat() {
           {messages.length === 0 && (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
-                10 demo queries showcasing multi-hop graph reasoning — click any to run:
+                10 complex queries for multi-hop graph reasoning — click any to run:
               </div>
-              {DEMO_QUERIES.map((section) => (
-                <div key={section.group} className="space-y-1.5">
-                  <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
-                    {section.group}
-                  </div>
-                  <div className="grid grid-cols-1 gap-2">
-                    {section.items.map((ex) => (
-                      <button
-                        key={ex}
-                        onClick={() => send(ex)}
-                        className="text-left rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50 hover:border-primary/40 transition-colors"
-                      >
-                        {ex}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              <div className="grid grid-cols-1 gap-2">
+                {COMPLEX_MULTI_HOP_QUERIES.map((ex) => (
+                  <button
+                    key={ex}
+                    onClick={() => send(ex)}
+                    className="text-left rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50 hover:border-primary/40 transition-colors"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {messages.map((m, i) => (
@@ -222,15 +184,40 @@ export default function Chat() {
             e.preventDefault();
             send(input);
           }}
-          className="border-t border-slate-200 p-4 flex gap-2"
+          className="border-t border-slate-200 p-4 flex gap-2 relative"
         >
           <input
             className="flex-1 h-10 rounded-md border border-slate-200 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             placeholder="Ask about a cluster, service, region, or timeframe…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onFocus={() => setQuerySuggestOpen(true)}
+            onBlur={() => setTimeout(() => setQuerySuggestOpen(false), 150)}
             disabled={busy}
           />
+          {querySuggestOpen && !busy && (
+            <div className="absolute left-4 right-28 bottom-full mb-1 max-h-80 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg z-20">
+              <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-100">
+                Complex Multi-hop Query Suggestions
+              </div>
+              <div className="p-1">
+                {COMPLEX_MULTI_HOP_QUERIES.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setInput(q);
+                      setQuerySuggestOpen(false);
+                    }}
+                    className="w-full text-left rounded-md px-2 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <Button type="submit" disabled={busy || !input.trim()}>
             <Send className="h-4 w-4" />
             {busy ? "Thinking…" : "Send"}

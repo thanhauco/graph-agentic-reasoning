@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, keepPreviousData } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { COMPLEX_MULTI_HOP_QUERIES } from "@/lib/querySuggestions";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import {
   Badge,
@@ -67,6 +68,7 @@ export default function Explorer() {
   const [search, setSearch] = useState(initial.search ?? "");
   const [searchOpen, setSearchOpen] = useState(false);
   const [nlQuery, setNlQuery] = useState("");
+  const [querySuggestOpen, setQuerySuggestOpen] = useState(false);
   const [queryHighlight, setQueryHighlight] = useState<string[]>([]);
 
   type ChatTurn = {
@@ -326,18 +328,21 @@ export default function Explorer() {
         </span>
       </div>
 
-      <div className="flex items-center gap-2 px-6 py-2 border-b border-slate-200 bg-white">
+      <div className="flex items-center gap-2 px-6 py-2 border-b border-slate-200 bg-white relative">
         <Sparkles className="h-4 w-4 text-primary shrink-0" />
         <input
           type="text"
           value={nlQuery}
           onChange={(e) => setNlQuery(e.target.value)}
+          onFocus={() => setQuerySuggestOpen(true)}
+          onBlur={() => setTimeout(() => setQuerySuggestOpen(false), 150)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && nlQuery.trim()) {
               runNlQuery.mutate(nlQuery.trim());
             }
             if (e.key === "Escape") {
               setNlQuery("");
+              setQuerySuggestOpen(false);
             }
           }}
           placeholder={
@@ -347,6 +352,29 @@ export default function Explorer() {
           }
           className="flex-1 h-9 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
         />
+        {querySuggestOpen && (
+          <div className="absolute left-12 right-[21rem] top-full mt-1 max-h-80 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg z-20">
+            <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-100">
+              Complex Multi-hop Query Suggestions
+            </div>
+            <div className="p-1">
+              {COMPLEX_MULTI_HOP_QUERIES.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setNlQuery(q);
+                    setQuerySuggestOpen(false);
+                  }}
+                  className="w-full text-left rounded-md px-2 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => nlQuery.trim() && runNlQuery.mutate(nlQuery.trim())}
