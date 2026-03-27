@@ -854,16 +854,41 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
                     line += " — " + "; ".join(top)
             parts.append(line + ".")
 
-    # --- similar peers ---
-    sim = by_step.get("similar") or (
-        by_step.get("main") if not tgt and not nc_rows else []
-    ) or []
-    sim = [r for r in sim if r.get("incidentId") and (not tgt or r.get("incidentId") != tgt.get("incidentId"))]
-    if sim:
-        ids = ", ".join(str(r["incidentId"]) for r in sim[:5])
-        parts.append(f"Similar incidents ({len(sim)}): {ids}.")
+    # --- similar peers (explicit similar step) ---
+    sim_rows = by_step.get("similar") or []
+    sim_rows = [
+        r for r in sim_rows
+        if r.get("incidentId") and (not tgt or r.get("incidentId") != tgt.get("incidentId"))
+    ]
+    if sim_rows:
+        ids = ", ".join(str(r["incidentId"]) for r in sim_rows[:5])
+        parts.append(f"Similar incidents ({len(sim_rows)}): {ids}.")
     elif tgt and "similar" in by_step:
         parts.append("No similar peers found in the current graph.")
+
+    # --- filtered list / generic main step ---
+    main_rows = by_step.get("main") or []
+    if main_rows and not tgt and not nc_rows and not sim_rows:
+        main_inc = [r for r in main_rows if r.get("incidentId")]
+        if main_inc:
+            ids = ", ".join(str(r["incidentId"]) for r in main_inc[:6])
+            svc_count: dict[str, int] = {}
+            rc_count: dict[str, int] = {}
+            for r in main_inc:
+                s = str(r.get("service") or "Unknown")
+                svc_count[s] = svc_count.get(s, 0) + 1
+                rc = str(r.get("rootCauseCategory") or "Unknown")
+                rc_count[rc] = rc_count.get(rc, 0) + 1
+            top_svc = ", ".join(
+                f"{k} ({v})"
+                for k, v in sorted(svc_count.items(), key=lambda kv: kv[1], reverse=True)[:3]
+            )
+            top_rc = ", ".join(
+                f"{k} ({v})"
+                for k, v in sorted(rc_count.items(), key=lambda kv: kv[1], reverse=True)[:3]
+            )
+            parts.append(f"Matching incidents ({len(main_inc)}): {ids}.")
+            parts.append(f"Top services: {top_svc}. Top root causes: {top_rc}.")
 
     return "\n\n".join(parts) if parts else f"Found {len(rows)} result(s)."
 
