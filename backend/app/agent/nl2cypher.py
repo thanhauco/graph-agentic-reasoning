@@ -274,6 +274,12 @@ def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
     steps: list[dict[str, Any]] = []
     ql = question.lower()
     wants_similar = any(k in ql for k in ("similar", "related", "like this", "like it"))
+    wants_explain = any(
+        k in ql for k in (
+            "explain", "long text", "long-form", "long form", "detailed",
+            "detail", "in depth", "deep dive", "full context", "elaborate",
+        )
+    )
     wants_neighbors = any(
         k in ql for k in (
             "how many", "neighbor", "neighbour", "connect", "connected",
@@ -374,7 +380,7 @@ def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
             "cypher": f"MATCH (i:Incident {{incidentId: $incidentId}}) RETURN {_RICH_INCIDENT_RETURN} LIMIT 1",
             "params": {"incidentId": inc_id},
         })
-        if gq.intent == "multi_hop" or wants_similar:
+        if gq.intent == "multi_hop" or wants_similar or wants_explain:
             steps.append({
                 "label": "similar",
                 "cypher": (
@@ -392,7 +398,7 @@ def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
                 ),
                 "params": {"incidentId": inc_id},
             })
-        if wants_neighbors:
+        if wants_neighbors or wants_explain:
             # Total count across all relationship types.
             steps.append({
                 "label": "neighbors_count",
@@ -747,6 +753,13 @@ Write a grounded answer:
 def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
     if not rows:
         return f"No matching rows for: {question}"
+    ql = question.lower()
+    wants_long_text = any(
+        k in ql for k in (
+            "explain", "long text", "long-form", "long form", "detailed",
+            "detail", "in depth", "deep dive", "full context", "elaborate",
+        )
+    )
     by_step: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         by_step.setdefault(r.get("_step") or "main", []).append(r)
@@ -837,6 +850,73 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
         if tgt.get("description"):
             parts.append(str(tgt["description"]))
 
+        if wants_long_text:
+            incident_id = str(tgt.get("incidentId") or "this incident")
+            service = str(tgt.get("service") or "unknown service")
+            region = str(tgt.get("region") or "unknown region")
+            team = str(tgt.get("team") or "unknown team")
+            status = str(tgt.get("status") or "unknown")
+            root_cause = str(tgt.get("rootCauseCategory") or "unknown")
+            mitigation = str(tgt.get("mitigation") or "not recorded")
+            impacted = tgt.get("impactedCustomers")
+            created_at = str(tgt.get("createdAt") or "")
+
+            long_sections: list[str] = []
+            long_sections.append(
+                f"{incident_id} is a Sev{tgt.get('severity')} incident in {service} / {region}, "
+                f"owned by {team}. It is currently marked {status}."
+            )
+            long_sections.append(
+                f"The dominant failure signal is {root_cause}. "
+                f"Mitigation recorded: {mitigation}."
+            )
+            if impacted is not None:
+                long_sections.append(
+                    f"Customer impact was recorded as {impacted} potentially affected customers."
+                )
+            if created_at:
+                long_sections.append(f"Timeline anchor: createdAt = {created_at}.")
+
+            nc_rows = by_step.get("neighbors_count") or []
+            nb_rows = by_step.get("neighbors_by_type") or []
+            if nc_rows and nc_rows[0].get("neighborCount") is not None:
+                nb_text = f"Graph context shows {nc_rows[0].get('neighborCount')} directly connected nodes"
+                if nb_rows:
+                    top = [
+                        f"{r.get('cnt')} {r.get('nodeType')} via {r.get('relation')}"
+                        for r in nb_rows[:5]
+                        if r.get("cnt") and r.get("nodeType")
+                    ]
+                    if top:
+                        nb_text += "; strongest links are " + ", ".join(top)
+                long_sections.append(nb_text + ".")
+
+            sim_rows = by_step.get("similar") or []
+            sim_rows = [r for r in sim_rows if r.get("incidentId") and r.get("incidentId") != tgt.get("incidentId")]
+            if sim_rows:
+                ids = ", ".join(str(r["incidentId"]) for r in sim_rows[:6])
+                rc_count: dict[str, int] = {}
+                svc_count: dict[str, int] = {}
+                for r in sim_rows:
+                    rc = str(r.get("rootCauseCategory") or "Unknown")
+                    rc_count[rc] = rc_count.get(rc, 0) + 1
+                    svc = str(r.get("service") or "Unknown")
+                    svc_count[svc] = svc_count.get(svc, 0) + 1
+                top_rc = sorted(rc_count.items(), key=lambda kv: kv[1], reverse=True)[:2]
+                top_svc = sorted(svc_count.items(), key=lambda kv: kv[1], reverse=True)[:2]
+                long_sections.append(
+                    f"Related incidents include {ids}. "
+                    f"Most common peer root causes: {', '.join(f'{k} ({v})' for k, v in top_rc)}; "
+                    f"top peer services: {', '.join(f'{k} ({v})' for k, v in top_svc)}."
+                )
+
+            long_sections.append(
+                "Operationally, prioritize validating configuration drift and dependency health in the same "
+                "service/team boundary, then monitor for recurrence in the linked peer incidents."
+            )
+
+            parts.append("\n".join(long_sections))
+
     # --- neighbor count / breakdown ---
     nc_rows = by_step.get("neighbors_count") or []
     nb_rows = by_step.get("neighbors_by_type") or []
@@ -874,11 +954,20 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
             ids = ", ".join(str(r["incidentId"]) for r in main_inc[:6])
             svc_count: dict[str, int] = {}
             rc_count: dict[str, int] = {}
+            region_count: dict[str, int] = {}
+            status_count: dict[str, int] = {}
+            sev_count: dict[str, int] = {}
             for r in main_inc:
                 s = str(r.get("service") or "Unknown")
                 svc_count[s] = svc_count.get(s, 0) + 1
                 rc = str(r.get("rootCauseCategory") or "Unknown")
                 rc_count[rc] = rc_count.get(rc, 0) + 1
+                rg = str(r.get("region") or "Unknown")
+                region_count[rg] = region_count.get(rg, 0) + 1
+                st = str(r.get("status") or "Unknown")
+                status_count[st] = status_count.get(st, 0) + 1
+                sev = str(r.get("severity") if r.get("severity") is not None else "Unknown")
+                sev_count[sev] = sev_count.get(sev, 0) + 1
             top_svc = ", ".join(
                 f"{k} ({v})"
                 for k, v in sorted(svc_count.items(), key=lambda kv: kv[1], reverse=True)[:3]
@@ -889,6 +978,29 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
             )
             parts.append(f"Matching incidents ({len(main_inc)}): {ids}.")
             parts.append(f"Top services: {top_svc}. Top root causes: {top_rc}.")
+            if wants_long_text:
+                top_region = ", ".join(
+                    f"{k} ({v})"
+                    for k, v in sorted(region_count.items(), key=lambda kv: kv[1], reverse=True)[:3]
+                )
+                top_status = ", ".join(
+                    f"{k} ({v})"
+                    for k, v in sorted(status_count.items(), key=lambda kv: kv[1], reverse=True)[:3]
+                )
+                sev_mix = ", ".join(
+                    f"Sev{k}:{v}"
+                    for k, v in sorted(sev_count.items(), key=lambda kv: kv[0])[:5]
+                )
+                parts.append(
+                    f"Detailed context: this selection maps to {len(main_inc)} incident records. "
+                    f"Top regions are {top_region}; status distribution is {top_status}; "
+                    f"severity mix is {sev_mix}."
+                )
+                parts.append(
+                    "Interpretation: this node is associated with a repeated operational pattern rather than "
+                    "a one-off event. Use the cited incidents to trace recurring failure modes and validate "
+                    "whether mitigations are consistently applied across regions."
+                )
 
     return "\n\n".join(parts) if parts else f"Found {len(rows)} result(s)."
 
