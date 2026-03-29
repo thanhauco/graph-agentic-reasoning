@@ -274,6 +274,12 @@ def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
     steps: list[dict[str, Any]] = []
     ql = question.lower()
     wants_similar = any(k in ql for k in ("similar", "related", "like this", "like it"))
+    wants_cause = any(
+        k in ql for k in (
+            "root cause", "what cause", "what caused", "cause this", "cause it",
+            "why this", "why did", "reason", "reason why",
+        )
+    )
     wants_explain = any(
         k in ql for k in (
             "explain", "long text", "long-form", "long form", "detailed",
@@ -380,7 +386,7 @@ def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
             "cypher": f"MATCH (i:Incident {{incidentId: $incidentId}}) RETURN {_RICH_INCIDENT_RETURN} LIMIT 1",
             "params": {"incidentId": inc_id},
         })
-        if gq.intent == "multi_hop" or wants_similar or wants_explain:
+        if gq.intent == "multi_hop" or wants_similar or wants_explain or wants_cause:
             steps.append({
                 "label": "similar",
                 "cypher": (
@@ -398,7 +404,7 @@ def _heuristic_plan(question: str, store: AppState) -> CypherPlan:
                 ),
                 "params": {"incidentId": inc_id},
             })
-        if wants_neighbors or wants_explain:
+        if wants_neighbors or wants_explain or wants_cause:
             # Total count across all relationship types.
             steps.append({
                 "label": "neighbors_count",
@@ -747,6 +753,9 @@ Write a grounded answer:
      Otherwise write prose.
   6. Never invent facts. If a section has no rows, say so briefly.
   7. Keep the total answer under ~180 words.
+    8. If the user asks causal intent (e.g., "what caused this", "why this"),
+         provide: (a) primary cause from target data, (b) supporting evidence from
+         similar/neighbor rows, and (c) a short confidence qualifier.
 """
 
 
@@ -758,6 +767,12 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
         k in ql for k in (
             "explain", "long text", "long-form", "long form", "detailed",
             "detail", "in depth", "deep dive", "full context", "elaborate",
+        )
+    )
+    wants_cause = any(
+        k in ql for k in (
+            "root cause", "what cause", "what caused", "cause this", "cause it",
+            "why this", "why did", "reason", "reason why",
         )
     )
     by_step: dict[str, list[dict[str, Any]]] = {}
@@ -837,6 +852,74 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
 
     tgt = (by_step.get("target") or [None])[0]
     if tgt:
+        sim_rows_for_target = by_step.get("similar") or []
+        sim_rows_for_target = [
+            r for r in sim_rows_for_target
+            if r.get("incidentId") and r.get("incidentId") != tgt.get("incidentId")
+        ]
+        nc_rows_for_target = by_step.get("neighbors_count") or []
+        nb_rows_for_target = by_step.get("neighbors_by_type") or []
+
+        if wants_cause:
+            incident_id = str(tgt.get("incidentId") or "this incident")
+            sev = tgt.get("severity")
+            service = str(tgt.get("service") or "unknown service")
+            region = str(tgt.get("region") or "unknown region")
+            team = str(tgt.get("team") or "unknown team")
+            status = str(tgt.get("status") or "unknown")
+            root_cause = str(tgt.get("rootCauseCategory") or "unknown")
+            mitigation = str(tgt.get("mitigation") or "not recorded")
+            impacted = tgt.get("impactedCustomers")
+
+            cause_parts: list[str] = []
+            cause_parts.append(
+                f"Likely primary cause for **{incident_id}** is **{root_cause}**. "
+                f"This is a Sev{sev} incident in {service}/{region} (team: {team}, status: {status})."
+            )
+            cause_parts.append(
+                f"Recorded mitigation was: {mitigation}."
+                + (f" Reported impact: {impacted} customers." if impacted is not None else "")
+            )
+
+            if sim_rows_for_target:
+                rc_count: dict[str, int] = {}
+                svc_count: dict[str, int] = {}
+                for r in sim_rows_for_target:
+                    rc = str(r.get("rootCauseCategory") or "Unknown")
+                    rc_count[rc] = rc_count.get(rc, 0) + 1
+                    svc = str(r.get("service") or "Unknown")
+                    svc_count[svc] = svc_count.get(svc, 0) + 1
+                top_rc = ", ".join(
+                    f"{k} ({v})"
+                    for k, v in sorted(rc_count.items(), key=lambda kv: kv[1], reverse=True)[:3]
+                )
+                top_svc = ", ".join(
+                    f"{k} ({v})"
+                    for k, v in sorted(svc_count.items(), key=lambda kv: kv[1], reverse=True)[:3]
+                )
+                ids = ", ".join(str(r["incidentId"]) for r in sim_rows_for_target[:5])
+                cause_parts.append(
+                    f"Inference from peer incidents ({ids}): dominant peer causes are {top_rc}; "
+                    f"peer services are {top_svc}."
+                )
+
+            if nc_rows_for_target and nc_rows_for_target[0].get("neighborCount") is not None:
+                line = f"Graph context: {nc_rows_for_target[0].get('neighborCount')} directly connected nodes"
+                top_nb = [
+                    f"{r.get('cnt')} {r.get('nodeType')} via {r.get('relation')}"
+                    for r in nb_rows_for_target[:4]
+                    if r.get("cnt") and r.get("nodeType")
+                ]
+                if top_nb:
+                    line += "; strongest links: " + ", ".join(top_nb)
+                cause_parts.append(line + ".")
+
+            cause_parts.append(
+                "Inference confidence: medium, based on recorded root-cause label plus similarity and graph-neighborhood signals; "
+                "validate against postmortem/change timeline for final attribution."
+            )
+            return "\n\n".join(cause_parts)
+
         bits = [
             f"**{tgt.get('incidentId')}** — {tgt.get('title') or ''}".strip(),
             f"Sev{tgt.get('severity')}" if tgt.get("severity") is not None else None,
@@ -877,8 +960,8 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
             if created_at:
                 long_sections.append(f"Timeline anchor: createdAt = {created_at}.")
 
-            nc_rows = by_step.get("neighbors_count") or []
-            nb_rows = by_step.get("neighbors_by_type") or []
+            nc_rows = nc_rows_for_target
+            nb_rows = nb_rows_for_target
             if nc_rows and nc_rows[0].get("neighborCount") is not None:
                 nb_text = f"Graph context shows {nc_rows[0].get('neighborCount')} directly connected nodes"
                 if nb_rows:
@@ -891,8 +974,7 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
                         nb_text += "; strongest links are " + ", ".join(top)
                 long_sections.append(nb_text + ".")
 
-            sim_rows = by_step.get("similar") or []
-            sim_rows = [r for r in sim_rows if r.get("incidentId") and r.get("incidentId") != tgt.get("incidentId")]
+            sim_rows = sim_rows_for_target
             if sim_rows:
                 ids = ", ".join(str(r["incidentId"]) for r in sim_rows[:6])
                 rc_count: dict[str, int] = {}
@@ -978,6 +1060,17 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
             )
             parts.append(f"Matching incidents ({len(main_inc)}): {ids}.")
             parts.append(f"Top services: {top_svc}. Top root causes: {top_rc}.")
+            if wants_cause:
+                top_causes = sorted(rc_count.items(), key=lambda kv: kv[1], reverse=True)[:3]
+                total = sum(rc_count.values()) or 1
+                likely = ", ".join(
+                    f"{k} ({v}/{total})" for k, v in top_causes
+                )
+                parts.append(
+                    f"Likely causes for this selection are: {likely}. "
+                    "Inference is based on distribution across matched incidents; "
+                    "validate with per-incident postmortem timelines for final attribution."
+                )
             if wants_long_text:
                 top_region = ", ".join(
                     f"{k} ({v})"
