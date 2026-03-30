@@ -872,12 +872,15 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
             impacted = tgt.get("impactedCustomers")
 
             cause_parts: list[str] = []
+            cause_parts.append("**Cause**")
             cause_parts.append(
                 f"Likely primary cause for **{incident_id}** is **{root_cause}**. "
-                f"This is a Sev{sev} incident in {service}/{region} (team: {team}, status: {status})."
+                f"Context: Sev{sev}, {service}/{region}, team {team}, status {status}."
             )
-            cause_parts.append(
-                f"Recorded mitigation was: {mitigation}."
+
+            evidence_lines: list[str] = []
+            evidence_lines.append(
+                f"Recorded mitigation: {mitigation}."
                 + (f" Reported impact: {impacted} customers." if impacted is not None else "")
             )
 
@@ -898,7 +901,7 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
                     for k, v in sorted(svc_count.items(), key=lambda kv: kv[1], reverse=True)[:3]
                 )
                 ids = ", ".join(str(r["incidentId"]) for r in sim_rows_for_target[:5])
-                cause_parts.append(
+                evidence_lines.append(
                     f"Inference from peer incidents ({ids}): dominant peer causes are {top_rc}; "
                     f"peer services are {top_svc}."
                 )
@@ -912,11 +915,19 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
                 ]
                 if top_nb:
                     line += "; strongest links: " + ", ".join(top_nb)
-                cause_parts.append(line + ".")
+                evidence_lines.append(line + ".")
 
+            cause_parts.append("**Evidence**")
+            cause_parts.append(" ".join(evidence_lines))
+            cause_parts.append("**Confidence**")
             cause_parts.append(
-                "Inference confidence: medium, based on recorded root-cause label plus similarity and graph-neighborhood signals; "
-                "validate against postmortem/change timeline for final attribution."
+                "Medium. This inference combines the recorded root-cause label with peer-similarity "
+                "and graph-neighborhood signals."
+            )
+            cause_parts.append("**Next Checks**")
+            cause_parts.append(
+                "1. Validate with postmortem timeline and recent change events. "
+                "2. Confirm whether the same cause pattern appears in the cited peer incidents."
             )
             return "\n\n".join(cause_parts)
 
@@ -1066,10 +1077,19 @@ def _deterministic_answer(question: str, rows: list[dict[str, Any]]) -> str:
                 likely = ", ".join(
                     f"{k} ({v}/{total})" for k, v in top_causes
                 )
+                parts.append("**Cause**")
+                parts.append(f"Likely causes for this selection: {likely}.")
+                parts.append("**Evidence**")
                 parts.append(
-                    f"Likely causes for this selection are: {likely}. "
-                    "Inference is based on distribution across matched incidents; "
-                    "validate with per-incident postmortem timelines for final attribution."
+                    f"Derived from {len(main_inc)} matched incidents. Top services: {top_svc}. "
+                    f"Top root causes: {top_rc}."
+                )
+                parts.append("**Confidence**")
+                parts.append("Medium, based on distribution over matched incidents rather than a single incident postmortem.")
+                parts.append("**Next Checks**")
+                parts.append(
+                    "1. Drill into the cited incident IDs for timeline-level proof. "
+                    "2. Validate whether the top cause ratio is stable across regions and statuses."
                 )
             if wants_long_text:
                 top_region = ", ".join(

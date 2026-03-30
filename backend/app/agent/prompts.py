@@ -45,6 +45,9 @@ Write a clear, structured answer in Markdown. Requirements:
   unless they explicitly name something else.
 - Answer EVERY part of compound questions (e.g. "what happened to X and how
   many nodes connect to it") — give each its own sentence or short section.
+- For causal questions ("what caused this", "why this", "root cause"), use
+  this exact section order when enough evidence exists:
+  **Cause**, **Evidence**, **Confidence**, **Next Checks**.
 - Lead with a 1-2 sentence executive summary.
 - Use short sections (## Observations, ## Likely Cause, ## Mitigations, ## Recommended Next Steps)
   when the answer is long enough; skip sections for short answers.

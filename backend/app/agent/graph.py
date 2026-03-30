@@ -301,6 +301,13 @@ def _heuristic_synthesis(user: str) -> str:
 
     question_match = re.search(r"QUESTION:\s*(.+?)\n", user)
     question = question_match.group(1).strip() if question_match else ""
+    ql = question.lower()
+    wants_cause = any(
+        k in ql for k in (
+            "root cause", "what cause", "what caused", "cause this", "cause it",
+            "why this", "why did", "reason", "reason why",
+        )
+    )
 
     # ---- multi-hop / compare / path markers inserted by _evidence_text ----
     related_groups = re.search(r"RELATED-GROUPS:\s*(.+)", user)
@@ -323,6 +330,44 @@ def _heuristic_synthesis(user: str) -> str:
         mc = comm_re.search(line)
         if mc:
             comms.append(mc.groupdict())
+
+    # ---- CAUSE answer (shared sectioned style) ----
+    if wants_cause and incs:
+        from collections import Counter as _C
+        focus = incs[0]
+        rcs = _C(i["rc"].strip() for i in incs)
+        svcs = _C(i["svc"].strip() for i in incs)
+        regs = _C(i["reg"].strip() for i in incs)
+        top_causes = ", ".join(f"{k} ({v})" for k, v in rcs.most_common(3))
+        top_svcs = ", ".join(f"{k} ({v})" for k, v in svcs.most_common(3))
+        top_regs = ", ".join(f"{k} ({v})" for k, v in regs.most_common(3))
+        peer_ids = ", ".join(f"[{i['id']}]" for i in incs[1:6])
+
+        lines = ["**Cause**"]
+        lines.append(
+            f"Likely primary cause is **{focus['rc'].strip()}** for [{focus['id']}] "
+            f"(Sev{focus['sev']} {focus['svc'].strip()}/{focus['reg'].strip()})."
+        )
+        lines.append("\n**Evidence**")
+        lines.append(
+            f"Observed cause distribution in retrieved evidence: {top_causes}. "
+            f"Service spread: {top_svcs}. Region spread: {top_regs}."
+        )
+        if peer_ids:
+            lines.append(f"Supporting peer incidents: {peer_ids}.")
+        lines.append("\n**Confidence**")
+        lines.append(
+            "Medium. Inference is grounded in retrieved incident labels and frequencies, "
+            "not a full postmortem chain."
+        )
+        lines.append("\n**Next Checks**")
+        lines.append(
+            "1. Validate with timeline-level evidence (deployments, config changes, dependency events)."
+        )
+        lines.append(
+            "2. Confirm whether the same cause pattern recurs in the cited peer incidents."
+        )
+        return "\n".join(lines)
 
     # ---- PATH answer ----
     if path_line:
