@@ -1,10 +1,12 @@
-"""GraphRAG retrieval: local, global, drift search.
+"""GraphRAG retrieval: local, global, drift search + multi-hop primitives.
 
-- local_search: entity-anchored — find entities matching the query, expand
-  their incident neighbors, rank by similarity.
-- global_search: map-reduce over community summaries to answer broad questions.
-- drift_search: hybrid — global hit selects communities; local search within
-  them for citation-quality evidence.
+Graph-structural operations (incident lookup, related_incidents, compare,
+shortest path, cooccurrence, neighbor expansion, temporal filter) dispatch to
+Memgraph via Cypher when ``settings.graph_backend == 'memgraph'`` and the
+driver can reach the database. Otherwise they fall back to NetworkX.
+
+Embedding-ranked search (local/global/drift) always uses the in-process
+``AppState`` vectors — the embedding matrix is orthogonal to the graph store.
 """
 
 from __future__ import annotations
@@ -20,6 +22,19 @@ import numpy as np
 from app.state import AppState
 
 log = logging.getLogger("icm.graphrag.retriever")
+
+
+# ---------- backend dispatcher ----------
+
+def _memgraph():
+    """Return a Memgraph client if enabled and reachable; else None."""
+    try:
+        from app.graphdb import is_memgraph_enabled, get_client
+    except Exception:  # noqa: BLE001
+        return None
+    if not is_memgraph_enabled():
+        return None
+    return get_client()
 
 
 # ---------- helpers ----------
@@ -232,6 +247,11 @@ def drift_search(store: AppState, query: str, *, top_communities: int = 3, top_k
 
 
 def neighbors(store: AppState, node_id: str, *, limit: int = 50) -> dict[str, Any]:
+    client = _memgraph()
+    if client is not None:
+        from app.graphdb import queries
+        return queries.neighbors(client, node_id, limit=limit)
+
     g = store.graph
     if not g.has_node(node_id):
         return {"node": None, "edges": []}
@@ -247,6 +267,11 @@ def neighbors(store: AppState, node_id: str, *, limit: int = 50) -> dict[str, An
 
 
 def temporal_filter(store: AppState, start: str | None, end: str | None, *, service: str | None = None) -> list[dict[str, Any]]:
+    client = _memgraph()
+    if client is not None:
+        from app.graphdb import queries
+        return queries.temporal_filter(client, start, end, service=service)
+
     rows: list[dict[str, Any]] = []
     for iid, d in store.graph.nodes(data=True):
         if d.get("type") != "Incident":
@@ -276,14 +301,16 @@ def related_incidents(
     min_shared: int = 2,
     limit: int = 12,
 ) -> dict[str, Any]:
-    """Multi-hop: from an anchor incident, traverse to its Service/Region/Team/
-    RootCauseCategory neighbors, then collect OTHER incidents that share at
-    least `min_shared` of those 4 dimensions with the anchor.
+    """Multi-hop reasoning: from an anchor incident, collect OTHER incidents
+    sharing at least ``min_shared`` of {service, region, team, rootCause}.
 
-    Returns the anchor, related incidents ranked by shared-dimension count,
-    and per-dimension groupings (so the UI/answer can say "these 6 share
-    service=Front Door AND rootCause=Certificate with INC-...").
+    Dispatches to Memgraph Cypher when available, else NetworkX.
     """
+    client = _memgraph()
+    if client is not None:
+        from app.graphdb import queries
+        return queries.related_incidents(client, anchor_id, min_shared=min_shared, limit=limit)
+
     g = store.graph
     if not g.has_node(anchor_id) or g.nodes[anchor_id].get("type") != "Incident":
         return {"anchor": None, "related": [], "groups": {}, "reason": "anchor not found"}
@@ -332,8 +359,12 @@ def compare_entities(
     *,
     dimension: str = "service",
 ) -> dict[str, Any]:
-    """Side-by-side breakdown of incidents for two entities (services by
-    default). Useful for 'Compare Front Door vs API Management'."""
+    """Side-by-side incident breakdown for two services / regions / teams."""
+    client = _memgraph()
+    if client is not None:
+        from app.graphdb import queries
+        return queries.compare_entities(client, left, right, dimension=dimension)
+
     g = store.graph
 
     def _stats(value: str) -> dict[str, Any]:
@@ -374,8 +405,12 @@ def shortest_path_between(
     *,
     max_len: int = 6,
 ) -> dict[str, Any]:
-    """Shortest path in the underlying undirected view of the KG (for
-    explaining 'how are X and Y connected?')."""
+    """Shortest relational path between two KG nodes."""
+    client = _memgraph()
+    if client is not None:
+        from app.graphdb import queries
+        return queries.shortest_path_between(client, src, dst, max_len=max_len)
+
     g = store.graph
     if not g.has_node(src) or not g.has_node(dst):
         return {"found": False, "reason": "endpoint(s) missing", "src": src, "dst": dst}
@@ -414,9 +449,12 @@ def cooccurrence(
     dimension: str = "service",
     top: int = 5,
 ) -> dict[str, Any]:
-    """Within Louvain communities that contain `anchor_label`, which other
-    services/root-causes co-occur most often? Good for questions like
-    'What services most often fail alongside Cosmos DB?'"""
+    """Co-occurrence within Louvain communities containing ``anchor_label``."""
+    client = _memgraph()
+    if client is not None:
+        from app.graphdb import queries
+        return queries.cooccurrence(client, anchor_label, top=top)
+
     hits: list[dict[str, Any]] = []
     co_services: Counter[str] = Counter()
     co_causes: Counter[str] = Counter()

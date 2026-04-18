@@ -1,15 +1,42 @@
 services:
+  memgraph:
+    image: memgraph/memgraph-platform:latest
+    container_name: icm-memgraph
+    ports:
+      - "7687:7687"   # Bolt
+      - "7444:7444"   # Monitoring
+      - "3000:3000"   # Memgraph Lab UI
+    volumes:
+      - memgraph-data:/var/lib/memgraph
+      - memgraph-log:/var/log/memgraph
+      - memgraph-etc:/etc/memgraph
+    environment:
+      - MEMGRAPH=--log-level=WARNING --storage-properties-on-edges=true
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'RETURN 1;' | mgconsole --host localhost --port 7687"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     env_file:
       - ./backend/.env
+    environment:
+      - GRAPH_BACKEND=memgraph
+      - MEMGRAPH_URL=bolt://memgraph:7687
     ports:
       - "8000:8000"
     volumes:
       - ./backend/data:/app/data
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      memgraph:
+        condition: service_healthy
+    command: >
+      bash -c "python -m scripts.load_memgraph --if-empty &&
+               uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   frontend:
     build:
@@ -21,3 +48,8 @@ services:
       - "4173:4173"
     depends_on:
       - backend
+
+volumes:
+  memgraph-data:
+  memgraph-log:
+  memgraph-etc:

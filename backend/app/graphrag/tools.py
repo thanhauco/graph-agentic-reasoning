@@ -31,6 +31,15 @@ def make_tools(store: AppState) -> dict[str, dict[str, Any]]:
         return retriever.temporal_filter(store, start, end, service=service)
 
     def _incident(incident_id: str) -> dict[str, Any] | None:
+        # Memgraph first when enabled.
+        try:
+            from app.graphdb import is_memgraph_enabled, get_client, queries as gq
+            if is_memgraph_enabled():
+                res = gq.incident_by_id(get_client(), incident_id)
+                if res:
+                    return res
+        except Exception:  # noqa: BLE001
+            pass
         inc = store.incident_by_id(incident_id)
         if inc:
             return inc
