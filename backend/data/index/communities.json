@@ -1,0 +1,1436 @@
+[
+  {
+    "communityId": "C-018",
+    "incidentIds": [
+      "INC-2026-0245",
+      "INC-2026-0123",
+      "INC-2026-0246",
+      "INC-2026-0157",
+      "INC-2026-0177",
+      "INC-2026-0127",
+      "INC-2026-0302",
+      "INC-2026-0124",
+      "INC-2026-0129",
+      "INC-2026-0187",
+      "INC-2026-0279",
+      "INC-2026-0149",
+      "INC-2026-0120",
+      "INC-2026-0152",
+      "INC-2026-0321",
+      "INC-2026-0347",
+      "INC-2026-0337",
+      "INC-2026-0202",
+      "INC-2026-0282",
+      "INC-2026-0121",
+      "INC-2026-0118",
+      "INC-2026-0119",
+      "INC-2026-0122",
+      "INC-2026-0125",
+      "INC-2026-0126"
+    ],
+    "size": 25,
+    "summary": "Cluster of 25 incidents. Top services: Monitor (17), Networking (2), API Management (2). Root causes: Dependency (15), Config (4), Code Defect (2). Regions: westus (3), centralus (3), westeurope (3). Highest severity in cluster: Sev0. Total impacted customers (approx): 22341. Representative incidents: Monitor config issue in eastus; Monitor ingestion backlog (westus); Monitor dependency issue in centralus.",
+    "topServices": [
+      "Monitor",
+      "Networking",
+      "API Management"
+    ],
+    "topRootCauses": [
+      "Dependency",
+      "Config",
+      "Code Defect"
+    ],
+    "topRegions": [
+      "westus",
+      "centralus",
+      "westeurope"
+    ]
+  },
+  {
+    "communityId": "C-007",
+    "incidentIds": [
+      "INC-2026-0262",
+      "INC-2026-0354",
+      "INC-2026-0351",
+      "INC-2026-0240",
+      "INC-2026-0140",
+      "INC-2026-0250",
+      "INC-2026-0178",
+      "INC-2026-0226",
+      "INC-2026-0291",
+      "INC-2026-0171",
+      "INC-2026-0066",
+      "INC-2026-0067",
+      "INC-2026-0065",
+      "INC-2026-0069",
+      "INC-2026-0068",
+      "INC-2026-0062",
+      "INC-2026-0063",
+      "INC-2026-0064",
+      "INC-2026-0259",
+      "INC-2026-0316",
+      "INC-2026-0236",
+      "INC-2026-0198",
+      "INC-2026-0373",
+      "INC-2026-0323"
+    ],
+    "size": 24,
+    "summary": "Cluster of 24 incidents. Top services: Storage (12), Functions (5), Azure OpenAI (4). Root causes: Networking (18), Code Defect (4), DNS (2). Regions: uksouth (4), westus3 (3), japaneast (3). Highest severity in cluster: Sev1. Total impacted customers (approx): 15590. Representative incidents: Functions networking issue in westus3; Storage networking issue in japaneast; Storage networking issue in northeurope.",
+    "topServices": [
+      "Storage",
+      "Functions",
+      "Azure OpenAI"
+    ],
+    "topRootCauses": [
+      "Networking",
+      "Code Defect",
+      "DNS"
+    ],
+    "topRegions": [
+      "uksouth",
+      "westus3",
+      "japaneast"
+    ]
+  },
+  {
+    "communityId": "C-044",
+    "incidentIds": [
+      "INC-2026-0211",
+      "INC-2026-0141",
+      "INC-2026-0052",
+      "INC-2026-0368",
+      "INC-2026-0190",
+      "INC-2026-0390",
+      "INC-2026-0188",
+      "INC-2026-0061",
+      "INC-2026-0051",
+      "INC-2026-0053",
+      "INC-2026-0058",
+      "INC-2026-0054",
+      "INC-2026-0060",
+      "INC-2026-0057",
+      "INC-2026-0055",
+      "INC-2026-0059",
+      "INC-2026-0050",
+      "INC-2026-0056",
+      "INC-2026-0180",
+      "INC-2026-0128",
+      "INC-2026-0137",
+      "INC-2026-0258"
+    ],
+    "size": 22,
+    "summary": "Cluster of 22 incidents. Top services: AKS (13), SQL DB (4), Azure OpenAI (3). Root causes: Code Defect (15), DNS (7). Regions: northeurope (3), westeurope (3), japaneast (2). Highest severity in cluster: Sev0. Total impacted customers (approx): 35939. Representative incidents: AKS code defect issue in uksouth; SQL DB dns issue in francecentral; AKS kubelet CrashLoopBackOff after 1.31 upgrade (japaneast).",
+    "topServices": [
+      "AKS",
+      "SQL DB",
+      "Azure OpenAI"
+    ],
+    "topRootCauses": [
+      "Code Defect",
+      "DNS"
+    ],
+    "topRegions": [
+      "northeurope",
+      "westeurope",
+      "japaneast"
+    ]
+  },
+  {
+    "communityId": "C-001",
+    "incidentIds": [
+      "INC-2026-0196",
+      "INC-2026-0283",
+      "INC-2026-0033",
+      "INC-2026-0037",
+      "INC-2026-0038",
+      "INC-2026-0026",
+      "INC-2026-0040",
+      "INC-2026-0035",
+      "INC-2026-0039",
+      "INC-2026-0032",
+      "INC-2026-0034",
+      "INC-2026-0028",
+      "INC-2026-0031",
+      "INC-2026-0030",
+      "INC-2026-0029",
+      "INC-2026-0036",
+      "INC-2026-0027",
+      "INC-2026-0025",
+      "INC-2026-0172",
+      "INC-2026-0142"
+    ],
+    "size": 20,
+    "summary": "Cluster of 20 incidents. Top services: Front Door (18), Functions (2). Root causes: Certificate (18), Deployment (2). Regions: northeurope (5), southeastasia (3), eastus (3). Highest severity in cluster: Sev1. Total impacted customers (approx): 38718. Representative incidents: Functions deployment issue in germanywestcentral; Front Door certificate issue in swedencentral; Front Door TLS handshake failures after cert rotation (southeastasia).",
+    "topServices": [
+      "Front Door",
+      "Functions"
+    ],
+    "topRootCauses": [
+      "Certificate",
+      "Deployment"
+    ],
+    "topRegions": [
+      "northeurope",
+      "southeastasia",
+      "eastus"
+    ]
+  },
+  {
+    "communityId": "C-022",
+    "incidentIds": [
+      "INC-2026-0166",
+      "INC-2026-0305",
+      "INC-2026-0179",
+      "INC-2026-0257",
+      "INC-2026-0107",
+      "INC-2026-0278",
+      "INC-2026-0206",
+      "INC-2026-0218",
+      "INC-2026-0109",
+      "INC-2026-0104",
+      "INC-2026-0102",
+      "INC-2026-0103",
+      "INC-2026-0108",
+      "INC-2026-0106",
+      "INC-2026-0105",
+      "INC-2026-0101",
+      "INC-2026-0324",
+      "INC-2026-0355",
+      "INC-2026-0165"
+    ],
+    "size": 19,
+    "summary": "Cluster of 19 incidents. Top services: SQL DB (10), Front Door (5), AKS (3). Root causes: Capacity (10), Config (5), Networking (3). Regions: germanywestcentral (3), swedencentral (2), southeastasia (2). Highest severity in cluster: Sev2. Total impacted customers (approx): 31485. Representative incidents: Front Door config issue in germanywestcentral; AKS networking issue in swedencentral; Front Door config issue in southeastasia.",
+    "topServices": [
+      "SQL DB",
+      "Front Door",
+      "AKS"
+    ],
+    "topRootCauses": [
+      "Capacity",
+      "Config",
+      "Networking"
+    ],
+    "topRegions": [
+      "germanywestcentral",
+      "swedencentral",
+      "southeastasia"
+    ]
+  },
+  {
+    "communityId": "C-056",
+    "incidentIds": [
+      "INC-2026-0097",
+      "INC-2026-0346",
+      "INC-2026-0096",
+      "INC-2026-0216",
+      "INC-2026-0092",
+      "INC-2026-0274",
+      "INC-2026-0094",
+      "INC-2026-0099",
+      "INC-2026-0095",
+      "INC-2026-0091",
+      "INC-2026-0100",
+      "INC-2026-0089",
+      "INC-2026-0098",
+      "INC-2026-0093",
+      "INC-2026-0088",
+      "INC-2026-0090",
+      "INC-2026-0396",
+      "INC-2026-0237",
+      "INC-2026-0158"
+    ],
+    "size": 19,
+    "summary": "Cluster of 19 incidents. Top services: Networking (13), API Management (3), Entra ID (2). Root causes: DNS (13), Deployment (3), Capacity (2). Regions: eastus (3), germanywestcentral (2), westus2 (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 36523. Representative incidents: Regional DNS resolution failures (eastus); API Management deployment issue in francecentral; Regional DNS resolution failures (germanywestcentral).",
+    "topServices": [
+      "Networking",
+      "API Management",
+      "Entra ID"
+    ],
+    "topRootCauses": [
+      "DNS",
+      "Deployment",
+      "Capacity"
+    ],
+    "topRegions": [
+      "eastus",
+      "germanywestcentral",
+      "westus2"
+    ]
+  },
+  {
+    "communityId": "C-014",
+    "incidentIds": [
+      "INC-2026-0009",
+      "INC-2026-0014",
+      "INC-2026-0004",
+      "INC-2026-0007",
+      "INC-2026-0003",
+      "INC-2026-0011",
+      "INC-2026-0013",
+      "INC-2026-0010",
+      "INC-2026-0006",
+      "INC-2026-0008",
+      "INC-2026-0005",
+      "INC-2026-0001",
+      "INC-2026-0012",
+      "INC-2026-0002",
+      "INC-2026-0143",
+      "INC-2026-0225",
+      "INC-2026-0326",
+      "INC-2026-0170"
+    ],
+    "size": 18,
+    "summary": "Cluster of 18 incidents. Top services: Azure OpenAI (17), SQL DB (1). Root causes: Capacity (17), Config (1). Regions: southeastasia (3), westus2 (3), westeurope (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 37251. Representative incidents: AOAI inference pool throttling (westeurope); AOAI inference pool throttling (southeastasia); AOAI inference pool throttling (southeastasia).",
+    "topServices": [
+      "Azure OpenAI",
+      "SQL DB"
+    ],
+    "topRootCauses": [
+      "Capacity",
+      "Config"
+    ],
+    "topRegions": [
+      "southeastasia",
+      "westus2",
+      "westeurope"
+    ]
+  },
+  {
+    "communityId": "C-030",
+    "incidentIds": [
+      "INC-2026-0023",
+      "INC-2026-0016",
+      "INC-2026-0020",
+      "INC-2026-0021",
+      "INC-2026-0018",
+      "INC-2026-0024",
+      "INC-2026-0019",
+      "INC-2026-0017",
+      "INC-2026-0015",
+      "INC-2026-0022",
+      "INC-2026-0284",
+      "INC-2026-0397",
+      "INC-2026-0185",
+      "INC-2026-0293",
+      "INC-2026-0233",
+      "INC-2026-0307",
+      "INC-2026-0229"
+    ],
+    "size": 17,
+    "summary": "Cluster of 17 incidents. Top services: Cosmos DB (14), Storage (3). Root causes: Capacity (14), Deployment (3). Regions: australiaeast (3), eastasia (2), switzerlandnorth (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 27186. Representative incidents: Cosmos DB 429 throttling surge (westeurope); Cosmos DB 429 throttling surge (australiaeast); Cosmos DB 429 throttling surge (eastasia).",
+    "topServices": [
+      "Cosmos DB",
+      "Storage"
+    ],
+    "topRootCauses": [
+      "Capacity",
+      "Deployment"
+    ],
+    "topRegions": [
+      "australiaeast",
+      "eastasia",
+      "switzerlandnorth"
+    ]
+  },
+  {
+    "communityId": "C-039",
+    "incidentIds": [
+      "INC-2026-0303",
+      "INC-2026-0362",
+      "INC-2026-0273",
+      "INC-2026-0288",
+      "INC-2026-0116",
+      "INC-2026-0296",
+      "INC-2026-0377",
+      "INC-2026-0375",
+      "INC-2026-0217",
+      "INC-2026-0114",
+      "INC-2026-0111",
+      "INC-2026-0113",
+      "INC-2026-0117",
+      "INC-2026-0110",
+      "INC-2026-0112",
+      "INC-2026-0115",
+      "INC-2026-0309"
+    ],
+    "size": 17,
+    "summary": "Cluster of 17 incidents. Top services: API Management (14), Functions (3). Root causes: Config (14), Code Defect (3). Regions: westeurope (4), swedencentral (3), australiaeast (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 28948. Representative incidents: API Management config issue in ukwest; Functions code defect issue in australiaeast; API Management config issue in northeurope.",
+    "topServices": [
+      "API Management",
+      "Functions"
+    ],
+    "topRootCauses": [
+      "Config",
+      "Code Defect"
+    ],
+    "topRegions": [
+      "westeurope",
+      "swedencentral",
+      "australiaeast"
+    ]
+  },
+  {
+    "communityId": "C-020",
+    "incidentIds": [
+      "INC-2026-0369",
+      "INC-2026-0203",
+      "INC-2026-0135",
+      "INC-2026-0365",
+      "INC-2026-0194",
+      "INC-2026-0364",
+      "INC-2026-0306",
+      "INC-2026-0235",
+      "INC-2026-0361",
+      "INC-2026-0256",
+      "INC-2026-0215",
+      "INC-2026-0350",
+      "INC-2026-0395",
+      "INC-2026-0310",
+      "INC-2026-0379"
+    ],
+    "size": 15,
+    "summary": "Cluster of 15 incidents. Top services: Front Door (8), Azure OpenAI (4), Monitor (3). Root causes: Networking (5), Deployment (4), Dependency (3). Regions: centralus (2), westeurope (2), francecentral (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 19683. Representative incidents: Front Door dependency issue in australiaeast; Monitor dns issue in centralus; Azure OpenAI deployment issue in southeastasia.",
+    "topServices": [
+      "Front Door",
+      "Azure OpenAI",
+      "Monitor"
+    ],
+    "topRootCauses": [
+      "Networking",
+      "Deployment",
+      "Dependency"
+    ],
+    "topRegions": [
+      "centralus",
+      "westeurope",
+      "francecentral"
+    ]
+  },
+  {
+    "communityId": "C-037",
+    "incidentIds": [
+      "INC-2026-0243",
+      "INC-2026-0183",
+      "INC-2026-0136",
+      "INC-2026-0378",
+      "INC-2026-0349",
+      "INC-2026-0244",
+      "INC-2026-0333",
+      "INC-2026-0285",
+      "INC-2026-0265",
+      "INC-2026-0234",
+      "INC-2026-0371",
+      "INC-2026-0383",
+      "INC-2026-0276",
+      "INC-2026-0295",
+      "INC-2026-0380"
+    ],
+    "size": 15,
+    "summary": "Cluster of 15 incidents. Top services: Storage (5), Entra ID (4), App Service (3). Root causes: DNS (7), Config (6), Capacity (2). Regions: centralus (2), northcentralus (2), uksouth (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 9556. Representative incidents: Storage config issue in northeurope; Storage config issue in westus3; SQL DB config issue in centralus.",
+    "topServices": [
+      "Storage",
+      "Entra ID",
+      "App Service"
+    ],
+    "topRootCauses": [
+      "DNS",
+      "Config",
+      "Capacity"
+    ],
+    "topRegions": [
+      "centralus",
+      "northcentralus",
+      "uksouth"
+    ]
+  },
+  {
+    "communityId": "C-008",
+    "incidentIds": [
+      "INC-2026-0167",
+      "INC-2026-0070",
+      "INC-2026-0075",
+      "INC-2026-0074",
+      "INC-2026-0079",
+      "INC-2026-0073",
+      "INC-2026-0072",
+      "INC-2026-0076",
+      "INC-2026-0077",
+      "INC-2026-0078",
+      "INC-2026-0071",
+      "INC-2026-0080",
+      "INC-2026-0247",
+      "INC-2026-0201"
+    ],
+    "size": 14,
+    "summary": "Cluster of 14 incidents. Top services: App Service (13), Functions (1). Root causes: Deployment (13), Capacity (1). Regions: westeurope (3), eastus2 (1), eastasia (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 36954. Representative incidents: App Service deployment issue in eastus2; App Service 5xx after platform rollout (eastasia); App Service 5xx after platform rollout (northeurope).",
+    "topServices": [
+      "App Service",
+      "Functions"
+    ],
+    "topRootCauses": [
+      "Deployment",
+      "Capacity"
+    ],
+    "topRegions": [
+      "westeurope",
+      "eastus2",
+      "eastasia"
+    ]
+  },
+  {
+    "communityId": "C-059",
+    "incidentIds": [
+      "INC-2026-0312",
+      "INC-2026-0085",
+      "INC-2026-0086",
+      "INC-2026-0083",
+      "INC-2026-0084",
+      "INC-2026-0082",
+      "INC-2026-0087",
+      "INC-2026-0081",
+      "INC-2026-0389",
+      "INC-2026-0335",
+      "INC-2026-0147"
+    ],
+    "size": 11,
+    "summary": "Cluster of 11 incidents. Top services: Functions (11). Root causes: Dependency (11). Regions: westus2 (2), westus3 (2), uksouth (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 6000. Representative incidents: Functions dependency issue in westus2; Functions cold-start regressions (uksouth); Functions cold-start regressions (australiaeast).",
+    "topServices": [
+      "Functions"
+    ],
+    "topRootCauses": [
+      "Dependency"
+    ],
+    "topRegions": [
+      "westus2",
+      "westus3",
+      "uksouth"
+    ]
+  },
+  {
+    "communityId": "C-048",
+    "incidentIds": [
+      "INC-2026-0044",
+      "INC-2026-0043",
+      "INC-2026-0041",
+      "INC-2026-0048",
+      "INC-2026-0046",
+      "INC-2026-0047",
+      "INC-2026-0042",
+      "INC-2026-0045",
+      "INC-2026-0049",
+      "INC-2026-0238"
+    ],
+    "size": 10,
+    "summary": "Cluster of 10 incidents. Top services: Entra ID (10). Root causes: Dependency (10). Regions: uksouth (2), westeurope (2), ukwest (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 21927. Representative incidents: Entra token issuance latency spike (uksouth); Entra token issuance latency spike (westeurope); Entra token issuance latency spike (germanywestcentral).",
+    "topServices": [
+      "Entra ID"
+    ],
+    "topRootCauses": [
+      "Dependency"
+    ],
+    "topRegions": [
+      "uksouth",
+      "westeurope",
+      "ukwest"
+    ]
+  },
+  {
+    "communityId": "C-006",
+    "incidentIds": [
+      "INC-2026-0363",
+      "INC-2026-0348",
+      "INC-2026-0175",
+      "INC-2026-0184",
+      "INC-2026-0163",
+      "INC-2026-0204",
+      "INC-2026-0212",
+      "INC-2026-0338",
+      "INC-2026-0366"
+    ],
+    "size": 9,
+    "summary": "Cluster of 9 incidents. Top services: Monitor (9). Root causes: Networking (9). Regions: westeurope (2), switzerlandnorth (1), southeastasia (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 3367. Representative incidents: Monitor networking issue in switzerlandnorth; Monitor networking issue in southeastasia; Monitor networking issue in westeurope.",
+    "topServices": [
+      "Monitor"
+    ],
+    "topRootCauses": [
+      "Networking"
+    ],
+    "topRegions": [
+      "westeurope",
+      "switzerlandnorth",
+      "southeastasia"
+    ]
+  },
+  {
+    "communityId": "C-010",
+    "incidentIds": [
+      "INC-2026-0372",
+      "INC-2026-0308",
+      "INC-2026-0318",
+      "INC-2026-0331",
+      "INC-2026-0315",
+      "INC-2026-0297",
+      "INC-2026-0159",
+      "INC-2026-0286",
+      "INC-2026-0189"
+    ],
+    "size": 9,
+    "summary": "Cluster of 9 incidents. Top services: Storage (9). Root causes: Code Defect (9). Regions: centralus (2), australiaeast (1), ukwest (1). Highest severity in cluster: Sev0. Total impacted customers (approx): 7955. Representative incidents: Storage code defect issue in australiaeast; Storage code defect issue in centralus; Storage code defect issue in ukwest.",
+    "topServices": [
+      "Storage"
+    ],
+    "topRootCauses": [
+      "Code Defect"
+    ],
+    "topRegions": [
+      "centralus",
+      "australiaeast",
+      "ukwest"
+    ]
+  },
+  {
+    "communityId": "C-028",
+    "incidentIds": [
+      "INC-2026-0224",
+      "INC-2026-0352",
+      "INC-2026-0332",
+      "INC-2026-0200",
+      "INC-2026-0255",
+      "INC-2026-0209",
+      "INC-2026-0220",
+      "INC-2026-0228"
+    ],
+    "size": 8,
+    "summary": "Cluster of 8 incidents. Top services: Monitor (8). Root causes: Deployment (8). Regions: westus3 (2), westeurope (2), centralus (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 13265. Representative incidents: Monitor deployment issue in westus3; Monitor deployment issue in centralus; Monitor deployment issue in westeurope.",
+    "topServices": [
+      "Monitor"
+    ],
+    "topRootCauses": [
+      "Deployment"
+    ],
+    "topRegions": [
+      "westus3",
+      "westeurope",
+      "centralus"
+    ]
+  },
+  {
+    "communityId": "C-025",
+    "incidentIds": [
+      "INC-2026-0227",
+      "INC-2026-0130",
+      "INC-2026-0287",
+      "INC-2026-0252",
+      "INC-2026-0154",
+      "INC-2026-0242",
+      "INC-2026-0289"
+    ],
+    "size": 7,
+    "summary": "Cluster of 7 incidents. Top services: Entra ID (4), AKS (3). Root causes: Deployment (7). Regions: ukwest (2), eastasia (1), swedencentral (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 6074. Representative incidents: AKS deployment issue in eastasia; Entra ID deployment issue in swedencentral; Entra ID deployment issue in northcentralus.",
+    "topServices": [
+      "Entra ID",
+      "AKS"
+    ],
+    "topRootCauses": [
+      "Deployment"
+    ],
+    "topRegions": [
+      "ukwest",
+      "eastasia",
+      "swedencentral"
+    ]
+  },
+  {
+    "communityId": "C-013",
+    "incidentIds": [
+      "INC-2026-0155",
+      "INC-2026-0341",
+      "INC-2026-0384",
+      "INC-2026-0138",
+      "INC-2026-0210",
+      "INC-2026-0344"
+    ],
+    "size": 6,
+    "summary": "Cluster of 6 incidents. Top services: Networking (4), Entra ID (2). Root causes: Networking (4), Config (2). Regions: southeastasia (2), swedencentral (1), northeurope (1). Highest severity in cluster: Sev0. Total impacted customers (approx): 5532. Representative incidents: Networking networking issue in southeastasia; Networking networking issue in swedencentral; Networking networking issue in northeurope.",
+    "topServices": [
+      "Networking",
+      "Entra ID"
+    ],
+    "topRootCauses": [
+      "Networking",
+      "Config"
+    ],
+    "topRegions": [
+      "southeastasia",
+      "swedencentral",
+      "northeurope"
+    ]
+  },
+  {
+    "communityId": "C-031",
+    "incidentIds": [
+      "INC-2026-0356",
+      "INC-2026-0269",
+      "INC-2026-0193",
+      "INC-2026-0144",
+      "INC-2026-0253"
+    ],
+    "size": 5,
+    "summary": "Cluster of 5 incidents. Top services: AKS (5). Root causes: Certificate (5). Regions: northcentralus (1), eastus (1), uksouth (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 13551. Representative incidents: AKS certificate issue in northcentralus; AKS certificate issue in eastus; AKS certificate issue in uksouth.",
+    "topServices": [
+      "AKS"
+    ],
+    "topRootCauses": [
+      "Certificate"
+    ],
+    "topRegions": [
+      "northcentralus",
+      "eastus",
+      "uksouth"
+    ]
+  },
+  {
+    "communityId": "C-050",
+    "incidentIds": [
+      "INC-2026-0195",
+      "INC-2026-0222",
+      "INC-2026-0392",
+      "INC-2026-0322",
+      "INC-2026-0314"
+    ],
+    "size": 5,
+    "summary": "Cluster of 5 incidents. Top services: Networking (5). Root causes: Security (5). Regions: eastus2 (1), westus3 (1), australiaeast (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 1043. Representative incidents: Networking security issue in eastus2; Networking security issue in westus3; Networking security issue in australiaeast.",
+    "topServices": [
+      "Networking"
+    ],
+    "topRootCauses": [
+      "Security"
+    ],
+    "topRegions": [
+      "eastus2",
+      "westus3",
+      "australiaeast"
+    ]
+  },
+  {
+    "communityId": "C-051",
+    "incidentIds": [
+      "INC-2026-0275",
+      "INC-2026-0134",
+      "INC-2026-0353",
+      "INC-2026-0267",
+      "INC-2026-0254"
+    ],
+    "size": 5,
+    "summary": "Cluster of 5 incidents. Top services: AKS (5). Root causes: DNS (5). Regions: centralus (1), germanywestcentral (1), southeastasia (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 2310. Representative incidents: AKS dns issue in centralus; AKS dns issue in germanywestcentral; AKS dns issue in southeastasia.",
+    "topServices": [
+      "AKS"
+    ],
+    "topRootCauses": [
+      "DNS"
+    ],
+    "topRegions": [
+      "centralus",
+      "germanywestcentral",
+      "southeastasia"
+    ]
+  },
+  {
+    "communityId": "C-019",
+    "incidentIds": [
+      "INC-2026-0219",
+      "INC-2026-0168",
+      "INC-2026-0207",
+      "INC-2026-0374"
+    ],
+    "size": 4,
+    "summary": "Cluster of 4 incidents. Top services: Monitor (3), API Management (1). Root causes: Capacity (3), Networking (1). Regions: germanywestcentral (1), ukwest (1), eastasia (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 774. Representative incidents: Monitor capacity issue in germanywestcentral; Monitor capacity issue in ukwest; Monitor capacity issue in eastasia.",
+    "topServices": [
+      "Monitor",
+      "API Management"
+    ],
+    "topRootCauses": [
+      "Capacity",
+      "Networking"
+    ],
+    "topRegions": [
+      "germanywestcentral",
+      "ukwest",
+      "eastasia"
+    ]
+  },
+  {
+    "communityId": "C-023",
+    "incidentIds": [
+      "INC-2026-0300",
+      "INC-2026-0164",
+      "INC-2026-0387",
+      "INC-2026-0266"
+    ],
+    "size": 4,
+    "summary": "Cluster of 4 incidents. Top services: App Service (4). Root causes: Certificate (4). Regions: westeurope (1), northeurope (1), centralus (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 7637. Representative incidents: App Service certificate issue in westeurope; App Service certificate issue in northeurope; App Service certificate issue in centralus.",
+    "topServices": [
+      "App Service"
+    ],
+    "topRootCauses": [
+      "Certificate"
+    ],
+    "topRegions": [
+      "westeurope",
+      "northeurope",
+      "centralus"
+    ]
+  },
+  {
+    "communityId": "C-024",
+    "incidentIds": [
+      "INC-2026-0182",
+      "INC-2026-0327",
+      "INC-2026-0173",
+      "INC-2026-0336"
+    ],
+    "size": 4,
+    "summary": "Cluster of 4 incidents. Top services: Entra ID (4). Root causes: Code Defect (4). Regions: centralus (1), westus3 (1), northcentralus (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 5785. Representative incidents: Entra ID code defect issue in centralus; Entra ID code defect issue in westus3; Entra ID code defect issue in northcentralus.",
+    "topServices": [
+      "Entra ID"
+    ],
+    "topRootCauses": [
+      "Code Defect"
+    ],
+    "topRegions": [
+      "centralus",
+      "westus3",
+      "northcentralus"
+    ]
+  },
+  {
+    "communityId": "C-027",
+    "incidentIds": [
+      "INC-2026-0150",
+      "INC-2026-0161",
+      "INC-2026-0263",
+      "INC-2026-0311"
+    ],
+    "size": 4,
+    "summary": "Cluster of 4 incidents. Top services: Storage (4). Root causes: Capacity (4). Regions: australiaeast (1), eastasia (1), westeurope (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 2915. Representative incidents: Storage capacity issue in australiaeast; Storage capacity issue in eastasia; Storage capacity issue in westeurope.",
+    "topServices": [
+      "Storage"
+    ],
+    "topRootCauses": [
+      "Capacity"
+    ],
+    "topRegions": [
+      "australiaeast",
+      "eastasia",
+      "westeurope"
+    ]
+  },
+  {
+    "communityId": "C-042",
+    "incidentIds": [
+      "INC-2026-0385",
+      "INC-2026-0241",
+      "INC-2026-0231",
+      "INC-2026-0192"
+    ],
+    "size": 4,
+    "summary": "Cluster of 4 incidents. Top services: Networking (4). Root causes: Dependency (4). Regions: switzerlandnorth (1), japaneast (1), southcentralus (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 6596. Representative incidents: Networking dependency issue in switzerlandnorth; Networking dependency issue in japaneast; Networking dependency issue in southcentralus.",
+    "topServices": [
+      "Networking"
+    ],
+    "topRootCauses": [
+      "Dependency"
+    ],
+    "topRegions": [
+      "switzerlandnorth",
+      "japaneast",
+      "southcentralus"
+    ]
+  },
+  {
+    "communityId": "C-011",
+    "incidentIds": [
+      "INC-2026-0156",
+      "INC-2026-0221",
+      "INC-2026-0230"
+    ],
+    "size": 3,
+    "summary": "Cluster of 3 incidents. Top services: Cosmos DB (3). Root causes: Dependency (3). Regions: eastasia (1), francecentral (1), westus (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 6713. Representative incidents: Cosmos DB dependency issue in eastasia; Cosmos DB dependency issue in francecentral; Cosmos DB dependency issue in westus.",
+    "topServices": [
+      "Cosmos DB"
+    ],
+    "topRootCauses": [
+      "Dependency"
+    ],
+    "topRegions": [
+      "eastasia",
+      "francecentral",
+      "westus"
+    ]
+  },
+  {
+    "communityId": "C-015",
+    "incidentIds": [
+      "INC-2026-0360",
+      "INC-2026-0317",
+      "INC-2026-0299"
+    ],
+    "size": 3,
+    "summary": "Cluster of 3 incidents. Top services: Entra ID (3). Root causes: Networking (3). Regions: westus2 (2), southcentralus (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 290. Representative incidents: Entra ID networking issue in westus2; Entra ID networking issue in southcentralus; Entra ID networking issue in westus2.",
+    "topServices": [
+      "Entra ID"
+    ],
+    "topRootCauses": [
+      "Networking"
+    ],
+    "topRegions": [
+      "westus2",
+      "southcentralus"
+    ]
+  },
+  {
+    "communityId": "C-017",
+    "incidentIds": [
+      "INC-2026-0399",
+      "INC-2026-0345",
+      "INC-2026-0160"
+    ],
+    "size": 3,
+    "summary": "Cluster of 3 incidents. Top services: Networking (3). Root causes: Capacity (3). Regions: swedencentral (1), japaneast (1), eastus2 (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 5443. Representative incidents: Networking capacity issue in swedencentral; Networking capacity issue in japaneast; Networking capacity issue in eastus2.",
+    "topServices": [
+      "Networking"
+    ],
+    "topRootCauses": [
+      "Capacity"
+    ],
+    "topRegions": [
+      "swedencentral",
+      "japaneast",
+      "eastus2"
+    ]
+  },
+  {
+    "communityId": "C-021",
+    "incidentIds": [
+      "INC-2026-0232",
+      "INC-2026-0145",
+      "INC-2026-0153"
+    ],
+    "size": 3,
+    "summary": "Cluster of 3 incidents. Top services: Cosmos DB (3). Root causes: Certificate (3). Regions: eastus (2), germanywestcentral (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 771. Representative incidents: Cosmos DB certificate issue in germanywestcentral; Cosmos DB certificate issue in eastus; Cosmos DB certificate issue in eastus.",
+    "topServices": [
+      "Cosmos DB"
+    ],
+    "topRootCauses": [
+      "Certificate"
+    ],
+    "topRegions": [
+      "eastus",
+      "germanywestcentral"
+    ]
+  },
+  {
+    "communityId": "C-040",
+    "incidentIds": [
+      "INC-2026-0174",
+      "INC-2026-0277",
+      "INC-2026-0325"
+    ],
+    "size": 3,
+    "summary": "Cluster of 3 incidents. Top services: Entra ID (3). Root causes: Security (3). Regions: francecentral (1), uksouth (1), westus (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 646. Representative incidents: Entra ID security issue in francecentral; Entra ID security issue in uksouth; Entra ID security issue in westus.",
+    "topServices": [
+      "Entra ID"
+    ],
+    "topRootCauses": [
+      "Security"
+    ],
+    "topRegions": [
+      "francecentral",
+      "uksouth",
+      "westus"
+    ]
+  },
+  {
+    "communityId": "C-041",
+    "incidentIds": [
+      "INC-2026-0342",
+      "INC-2026-0271",
+      "INC-2026-0248"
+    ],
+    "size": 3,
+    "summary": "Cluster of 3 incidents. Top services: API Management (3). Root causes: DNS (3). Regions: ukwest (1), eastasia (1), northcentralus (1). Highest severity in cluster: Sev0. Total impacted customers (approx): 3876. Representative incidents: API Management dns issue in ukwest; API Management dns issue in eastasia; API Management dns issue in northcentralus.",
+    "topServices": [
+      "API Management"
+    ],
+    "topRootCauses": [
+      "DNS"
+    ],
+    "topRegions": [
+      "ukwest",
+      "eastasia",
+      "northcentralus"
+    ]
+  },
+  {
+    "communityId": "C-047",
+    "incidentIds": [
+      "INC-2026-0292",
+      "INC-2026-0386",
+      "INC-2026-0367"
+    ],
+    "size": 3,
+    "summary": "Cluster of 3 incidents. Top services: Cosmos DB (3). Root causes: Code Defect (3). Regions: westus (1), westus2 (1), australiaeast (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 5298. Representative incidents: Cosmos DB code defect issue in westus; Cosmos DB code defect issue in westus2; Cosmos DB code defect issue in australiaeast.",
+    "topServices": [
+      "Cosmos DB"
+    ],
+    "topRootCauses": [
+      "Code Defect"
+    ],
+    "topRegions": [
+      "westus",
+      "westus2",
+      "australiaeast"
+    ]
+  },
+  {
+    "communityId": "C-058",
+    "incidentIds": [
+      "INC-2026-0199",
+      "INC-2026-0328",
+      "INC-2026-0162"
+    ],
+    "size": 3,
+    "summary": "Cluster of 3 incidents. Top services: Front Door (2), API Management (1). Root causes: DNS (2), Certificate (1). Regions: westus3 (2), switzerlandnorth (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 4459. Representative incidents: Front Door dns issue in westus3; Front Door dns issue in switzerlandnorth; API Management certificate issue in westus3.",
+    "topServices": [
+      "Front Door",
+      "API Management"
+    ],
+    "topRootCauses": [
+      "DNS",
+      "Certificate"
+    ],
+    "topRegions": [
+      "westus3",
+      "switzerlandnorth"
+    ]
+  },
+  {
+    "communityId": "C-066",
+    "incidentIds": [
+      "INC-2026-0268",
+      "INC-2026-0313",
+      "INC-2026-0320"
+    ],
+    "size": 3,
+    "summary": "Cluster of 3 incidents. Top services: SQL DB (3). Root causes: Security (3). Regions: westus2 (1), uksouth (1), westus3 (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 236. Representative incidents: SQL DB security issue in westus2; SQL DB security issue in uksouth; SQL DB security issue in westus3.",
+    "topServices": [
+      "SQL DB"
+    ],
+    "topRootCauses": [
+      "Security"
+    ],
+    "topRegions": [
+      "westus2",
+      "uksouth",
+      "westus3"
+    ]
+  },
+  {
+    "communityId": "C-002",
+    "incidentIds": [
+      "INC-2026-0400",
+      "INC-2026-0339"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Front Door (2). Root causes: Security (2). Regions: westus3 (1), westus2 (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 765. Representative incidents: Front Door security issue in westus3; Front Door security issue in westus2.",
+    "topServices": [
+      "Front Door"
+    ],
+    "topRootCauses": [
+      "Security"
+    ],
+    "topRegions": [
+      "westus3",
+      "westus2"
+    ]
+  },
+  {
+    "communityId": "C-005",
+    "incidentIds": [
+      "INC-2026-0181",
+      "INC-2026-0148"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Functions (2). Root causes: Certificate (2). Regions: ukwest (1), eastus (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 1407. Representative incidents: Functions certificate issue in ukwest; Functions certificate issue in eastus.",
+    "topServices": [
+      "Functions"
+    ],
+    "topRootCauses": [
+      "Certificate"
+    ],
+    "topRegions": [
+      "ukwest",
+      "eastus"
+    ]
+  },
+  {
+    "communityId": "C-012",
+    "incidentIds": [
+      "INC-2026-0264",
+      "INC-2026-0239"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Front Door (2). Root causes: Code Defect (2). Regions: uksouth (1), southeastasia (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 494. Representative incidents: Front Door code defect issue in uksouth; Front Door code defect issue in southeastasia.",
+    "topServices": [
+      "Front Door"
+    ],
+    "topRootCauses": [
+      "Code Defect"
+    ],
+    "topRegions": [
+      "uksouth",
+      "southeastasia"
+    ]
+  },
+  {
+    "communityId": "C-016",
+    "incidentIds": [
+      "INC-2026-0169",
+      "INC-2026-0290"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: API Management (2). Root causes: Dependency (2). Regions: australiaeast (1), westus3 (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 293. Representative incidents: API Management dependency issue in australiaeast; API Management dependency issue in westus3.",
+    "topServices": [
+      "API Management"
+    ],
+    "topRootCauses": [
+      "Dependency"
+    ],
+    "topRegions": [
+      "australiaeast",
+      "westus3"
+    ]
+  },
+  {
+    "communityId": "C-033",
+    "incidentIds": [
+      "INC-2026-0214",
+      "INC-2026-0376"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Functions (2). Root causes: Config (2). Regions: germanywestcentral (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 8231. Representative incidents: Functions config issue in germanywestcentral; Functions config issue in germanywestcentral.",
+    "topServices": [
+      "Functions"
+    ],
+    "topRootCauses": [
+      "Config"
+    ],
+    "topRegions": [
+      "germanywestcentral"
+    ]
+  },
+  {
+    "communityId": "C-034",
+    "incidentIds": [
+      "INC-2026-0357",
+      "INC-2026-0394"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: AKS (2). Root causes: Config (2). Regions: southeastasia (1), ukwest (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 2040. Representative incidents: AKS config issue in southeastasia; AKS config issue in ukwest.",
+    "topServices": [
+      "AKS"
+    ],
+    "topRootCauses": [
+      "Config"
+    ],
+    "topRegions": [
+      "southeastasia",
+      "ukwest"
+    ]
+  },
+  {
+    "communityId": "C-035",
+    "incidentIds": [
+      "INC-2026-0334",
+      "INC-2026-0329"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: API Management (2). Root causes: Code Defect (2). Regions: germanywestcentral (1), westus3 (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 2728. Representative incidents: API Management code defect issue in germanywestcentral; API Management code defect issue in westus3.",
+    "topServices": [
+      "API Management"
+    ],
+    "topRootCauses": [
+      "Code Defect"
+    ],
+    "topRegions": [
+      "germanywestcentral",
+      "westus3"
+    ]
+  },
+  {
+    "communityId": "C-036",
+    "incidentIds": [
+      "INC-2026-0391",
+      "INC-2026-0197"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Azure OpenAI (2). Root causes: Networking (2). Regions: ukwest (1), northeurope (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 5804. Representative incidents: Azure OpenAI networking issue in ukwest; Azure OpenAI networking issue in northeurope.",
+    "topServices": [
+      "Azure OpenAI"
+    ],
+    "topRootCauses": [
+      "Networking"
+    ],
+    "topRegions": [
+      "ukwest",
+      "northeurope"
+    ]
+  },
+  {
+    "communityId": "C-043",
+    "incidentIds": [
+      "INC-2026-0139",
+      "INC-2026-0249"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Entra ID (2). Root causes: Certificate (2). Regions: japaneast (1), swedencentral (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 584. Representative incidents: Entra ID certificate issue in japaneast; Entra ID certificate issue in swedencentral.",
+    "topServices": [
+      "Entra ID"
+    ],
+    "topRootCauses": [
+      "Certificate"
+    ],
+    "topRegions": [
+      "japaneast",
+      "swedencentral"
+    ]
+  },
+  {
+    "communityId": "C-046",
+    "incidentIds": [
+      "INC-2026-0186",
+      "INC-2026-0272"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Front Door (2). Root causes: Deployment (2). Regions: westus2 (1), southcentralus (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 3204. Representative incidents: Front Door deployment issue in westus2; Front Door deployment issue in southcentralus.",
+    "topServices": [
+      "Front Door"
+    ],
+    "topRootCauses": [
+      "Deployment"
+    ],
+    "topRegions": [
+      "westus2",
+      "southcentralus"
+    ]
+  },
+  {
+    "communityId": "C-049",
+    "incidentIds": [
+      "INC-2026-0388",
+      "INC-2026-0294"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Azure OpenAI (2). Root causes: Security (2). Regions: southeastasia (1), japaneast (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 4754. Representative incidents: Azure OpenAI security issue in southeastasia; Azure OpenAI security issue in japaneast.",
+    "topServices": [
+      "Azure OpenAI"
+    ],
+    "topRootCauses": [
+      "Security"
+    ],
+    "topRegions": [
+      "southeastasia",
+      "japaneast"
+    ]
+  },
+  {
+    "communityId": "C-052",
+    "incidentIds": [
+      "INC-2026-0298",
+      "INC-2026-0398"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: App Service (2). Root causes: Code Defect (2). Regions: australiaeast (1), switzerlandnorth (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 370. Representative incidents: App Service code defect issue in australiaeast; App Service code defect issue in switzerlandnorth.",
+    "topServices": [
+      "App Service"
+    ],
+    "topRootCauses": [
+      "Code Defect"
+    ],
+    "topRegions": [
+      "australiaeast",
+      "switzerlandnorth"
+    ]
+  },
+  {
+    "communityId": "C-053",
+    "incidentIds": [
+      "INC-2026-0146",
+      "INC-2026-0281"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: App Service (2). Root causes: Config (2). Regions: japaneast (1), australiaeast (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 2207. Representative incidents: App Service config issue in japaneast; App Service config issue in australiaeast.",
+    "topServices": [
+      "App Service"
+    ],
+    "topRootCauses": [
+      "Config"
+    ],
+    "topRegions": [
+      "japaneast",
+      "australiaeast"
+    ]
+  },
+  {
+    "communityId": "C-054",
+    "incidentIds": [
+      "INC-2026-0251",
+      "INC-2026-0205"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Front Door (2). Root causes: Capacity (2). Regions: westeurope (1), southeastasia (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 4965. Representative incidents: Front Door capacity issue in westeurope; Front Door capacity issue in southeastasia.",
+    "topServices": [
+      "Front Door"
+    ],
+    "topRootCauses": [
+      "Capacity"
+    ],
+    "topRegions": [
+      "westeurope",
+      "southeastasia"
+    ]
+  },
+  {
+    "communityId": "C-055",
+    "incidentIds": [
+      "INC-2026-0330",
+      "INC-2026-0359"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Cosmos DB (2). Root causes: Deployment (2). Regions: northeurope (1), southcentralus (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 571. Representative incidents: Cosmos DB deployment issue in northeurope; Cosmos DB deployment issue in southcentralus.",
+    "topServices": [
+      "Cosmos DB"
+    ],
+    "topRootCauses": [
+      "Deployment"
+    ],
+    "topRegions": [
+      "northeurope",
+      "southcentralus"
+    ]
+  },
+  {
+    "communityId": "C-057",
+    "incidentIds": [
+      "INC-2026-0213",
+      "INC-2026-0280"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: App Service (2). Root causes: Networking (2). Regions: centralus (1), ukwest (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 4261. Representative incidents: App Service networking issue in centralus; App Service networking issue in ukwest.",
+    "topServices": [
+      "App Service"
+    ],
+    "topRootCauses": [
+      "Networking"
+    ],
+    "topRegions": [
+      "centralus",
+      "ukwest"
+    ]
+  },
+  {
+    "communityId": "C-061",
+    "incidentIds": [
+      "INC-2026-0132",
+      "INC-2026-0370"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: App Service (2). Root causes: Capacity (2). Regions: northcentralus (1), uksouth (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 161. Representative incidents: App Service capacity issue in northcentralus; App Service capacity issue in uksouth.",
+    "topServices": [
+      "App Service"
+    ],
+    "topRootCauses": [
+      "Capacity"
+    ],
+    "topRegions": [
+      "northcentralus",
+      "uksouth"
+    ]
+  },
+  {
+    "communityId": "C-062",
+    "incidentIds": [
+      "INC-2026-0358",
+      "INC-2026-0319"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Cosmos DB (2). Root causes: Config (2). Regions: southeastasia (1), germanywestcentral (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 2989. Representative incidents: Cosmos DB config issue in southeastasia; Cosmos DB config issue in germanywestcentral.",
+    "topServices": [
+      "Cosmos DB"
+    ],
+    "topRootCauses": [
+      "Config"
+    ],
+    "topRegions": [
+      "southeastasia",
+      "germanywestcentral"
+    ]
+  },
+  {
+    "communityId": "C-063",
+    "incidentIds": [
+      "INC-2026-0393",
+      "INC-2026-0133"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Networking (2). Root causes: Deployment (2). Regions: eastasia (1), australiaeast (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 3527. Representative incidents: Networking deployment issue in eastasia; Networking deployment issue in australiaeast.",
+    "topServices": [
+      "Networking"
+    ],
+    "topRootCauses": [
+      "Deployment"
+    ],
+    "topRegions": [
+      "eastasia",
+      "australiaeast"
+    ]
+  },
+  {
+    "communityId": "C-064",
+    "incidentIds": [
+      "INC-2026-0270",
+      "INC-2026-0261"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Storage (2). Root causes: Dependency (2). Regions: eastus (1), centralus (1). Highest severity in cluster: Sev4. Total impacted customers (approx): 684. Representative incidents: Storage dependency issue in eastus; Storage dependency issue in centralus.",
+    "topServices": [
+      "Storage"
+    ],
+    "topRootCauses": [
+      "Dependency"
+    ],
+    "topRegions": [
+      "eastus",
+      "centralus"
+    ]
+  },
+  {
+    "communityId": "C-065",
+    "incidentIds": [
+      "INC-2026-0381",
+      "INC-2026-0340"
+    ],
+    "size": 2,
+    "summary": "Cluster of 2 incidents. Top services: Storage (2). Root causes: Certificate (2). Regions: swedencentral (1), ukwest (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 145. Representative incidents: Storage certificate issue in swedencentral; Storage certificate issue in ukwest.",
+    "topServices": [
+      "Storage"
+    ],
+    "topRootCauses": [
+      "Certificate"
+    ],
+    "topRegions": [
+      "swedencentral",
+      "ukwest"
+    ]
+  }
+]
