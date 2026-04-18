@@ -263,6 +263,193 @@ def temporal_filter(store: AppState, start: str | None, end: str | None, *, serv
     return rows
 
 
+# ---------- multi-hop relational reasoning ----------
+
+_DIMENSIONS = ("service", "region", "team", "rootCauseCategory")
+
+
+def related_incidents(
+    store: AppState,
+    anchor_id: str,
+    *,
+    hops: int = 2,
+    min_shared: int = 2,
+    limit: int = 12,
+) -> dict[str, Any]:
+    """Multi-hop: from an anchor incident, traverse to its Service/Region/Team/
+    RootCauseCategory neighbors, then collect OTHER incidents that share at
+    least `min_shared` of those 4 dimensions with the anchor.
+
+    Returns the anchor, related incidents ranked by shared-dimension count,
+    and per-dimension groupings (so the UI/answer can say "these 6 share
+    service=Front Door AND rootCause=Certificate with INC-...").
+    """
+    g = store.graph
+    if not g.has_node(anchor_id) or g.nodes[anchor_id].get("type") != "Incident":
+        return {"anchor": None, "related": [], "groups": {}, "reason": "anchor not found"}
+
+    a = g.nodes[anchor_id]
+    anchor_dims = {d: a.get(d) for d in _DIMENSIONS if a.get(d)}
+
+    scored: list[tuple[int, list[str], str]] = []
+    for iid, d in g.nodes(data=True):
+        if d.get("type") != "Incident" or iid == anchor_id:
+            continue
+        shared = [k for k, v in anchor_dims.items() if d.get(k) == v]
+        if len(shared) >= min_shared:
+            scored.append((len(shared), shared, iid))
+
+    # Rank by most dimensions shared, then severity.
+    scored.sort(key=lambda x: (-x[0], g.nodes[x[2]].get("severity", 4)))
+    top = scored[:limit]
+
+    related_rows = []
+    for n_shared, shared, iid in top:
+        row = _incident_row(g, iid)
+        row["sharedWithAnchor"] = shared
+        row["sharedCount"] = n_shared
+        related_rows.append(row)
+
+    # Group by shared-dimension signature (e.g., "service+rootCauseCategory").
+    groups: dict[str, list[str]] = {}
+    for r in related_rows:
+        key = "+".join(sorted(r["sharedWithAnchor"]))
+        groups.setdefault(key, []).append(r["incidentId"])
+
+    return {
+        "anchor": _incident_row(g, anchor_id),
+        "anchorDims": anchor_dims,
+        "related": related_rows,
+        "groups": groups,
+        "hops": hops,
+    }
+
+
+def compare_entities(
+    store: AppState,
+    left: str,
+    right: str,
+    *,
+    dimension: str = "service",
+) -> dict[str, Any]:
+    """Side-by-side breakdown of incidents for two entities (services by
+    default). Useful for 'Compare Front Door vs API Management'."""
+    g = store.graph
+
+    def _stats(value: str) -> dict[str, Any]:
+        rows = [
+            _incident_row(g, n)
+            for n, d in g.nodes(data=True)
+            if d.get("type") == "Incident" and d.get(dimension) == value
+        ]
+        return {
+            "value": value,
+            "total": len(rows),
+            "bySeverity": dict(Counter(str(r["severity"]) for r in rows).most_common()),
+            "byRootCause": dict(Counter(r["rootCauseCategory"] for r in rows).most_common(5)),
+            "byRegion": dict(Counter(r["region"] for r in rows).most_common(5)),
+            "byStatus": dict(Counter(r["status"] for r in rows).most_common()),
+            "topIncidents": sorted(rows, key=lambda r: r.get("severity", 4))[:5],
+        }
+
+    l_stats = _stats(left)
+    r_stats = _stats(right)
+
+    # Overlap in root causes
+    common_rc = sorted(
+        set(l_stats["byRootCause"].keys()) & set(r_stats["byRootCause"].keys())
+    )
+    return {
+        "dimension": dimension,
+        "left": l_stats,
+        "right": r_stats,
+        "sharedRootCauses": common_rc,
+    }
+
+
+def shortest_path_between(
+    store: AppState,
+    src: str,
+    dst: str,
+    *,
+    max_len: int = 6,
+) -> dict[str, Any]:
+    """Shortest path in the underlying undirected view of the KG (for
+    explaining 'how are X and Y connected?')."""
+    g = store.graph
+    if not g.has_node(src) or not g.has_node(dst):
+        return {"found": False, "reason": "endpoint(s) missing", "src": src, "dst": dst}
+    u = g.to_undirected(as_view=False)
+    try:
+        path = nx.shortest_path(u, src, dst)
+    except nx.NetworkXNoPath:
+        return {"found": False, "src": src, "dst": dst}
+    if len(path) - 1 > max_len:
+        return {"found": False, "tooLong": True, "length": len(path) - 1}
+    steps = []
+    for a, b in zip(path, path[1:]):
+        rel = None
+        if g.has_edge(a, b):
+            edata = next(iter(g.get_edge_data(a, b).values()))
+            rel = edata.get("relation")
+        elif g.has_edge(b, a):
+            edata = next(iter(g.get_edge_data(b, a).values()))
+            rel = edata.get("relation") + " (rev)" if edata.get("relation") else None
+        steps.append({
+            "from": a,
+            "fromType": g.nodes[a].get("type"),
+            "fromLabel": g.nodes[a].get("label") or g.nodes[a].get("title"),
+            "to": b,
+            "toType": g.nodes[b].get("type"),
+            "toLabel": g.nodes[b].get("label") or g.nodes[b].get("title"),
+            "relation": rel or "related",
+        })
+    return {"found": True, "src": src, "dst": dst, "length": len(path) - 1, "steps": steps}
+
+
+def cooccurrence(
+    store: AppState,
+    anchor_label: str,
+    *,
+    dimension: str = "service",
+    top: int = 5,
+) -> dict[str, Any]:
+    """Within Louvain communities that contain `anchor_label`, which other
+    services/root-causes co-occur most often? Good for questions like
+    'What services most often fail alongside Cosmos DB?'"""
+    hits: list[dict[str, Any]] = []
+    co_services: Counter[str] = Counter()
+    co_causes: Counter[str] = Counter()
+    co_regions: Counter[str] = Counter()
+    anchor_low = anchor_label.lower()
+    for c in store.communities:
+        services = c.get("topServices") or []
+        causes = c.get("topRootCauses") or []
+        regions = c.get("topRegions") or []
+        svc_hit = any(anchor_low == s.lower() for s in services)
+        # Consider match if anchor appears in services/regions/causes.
+        match = svc_hit or any(anchor_low == r.lower() for r in regions) or any(anchor_low == rc.lower() for rc in causes)
+        if not match:
+            continue
+        hits.append({"communityId": c["communityId"], "size": c["size"], "summary": c["summary"]})
+        for s in services:
+            if s.lower() != anchor_low:
+                co_services[s] += 1
+        for rc in causes:
+            co_causes[rc] += 1
+        for r in regions:
+            if r.lower() != anchor_low:
+                co_regions[r] += 1
+    return {
+        "anchor": anchor_label,
+        "dimension": dimension,
+        "communities": hits[:top],
+        "coServices": dict(co_services.most_common(top)),
+        "coRootCauses": dict(co_causes.most_common(top)),
+        "coRegions": dict(co_regions.most_common(top)),
+    }
+
+
 def top_stats(store: AppState) -> dict[str, Any]:
     incs = [d for _, d in store.graph.nodes(data=True) if d.get("type") == "Incident"]
     by_service = Counter(i["service"] for i in incs)

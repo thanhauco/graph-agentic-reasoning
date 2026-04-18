@@ -1,0 +1,648 @@
+{
+  "summary": {
+    "modeOk": "9/15 (60%)",
+    "citations": "15/15 (100%)",
+    "mustInclude": "15/15 (100%)",
+    "mustAny": "5/15 (33%)"
+  },
+  "rows": [
+    {
+      "q": "What happened in incident INC-2026-0001?",
+      "expected": {
+        "q": "What happened in incident INC-2026-0001?",
+        "mode": "local",
+        "must_include": [
+          "INC-2026-0001"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0001, INC-2026-0142, INC-2026-0122, INC-2026-0004.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0142",
+          "INC-2026-0122",
+          "INC-2026-0004",
+          "INC-2026-0295",
+          "INC-2026-0075",
+          "INC-2026-0139",
+          "INC-2026-0256",
+          "INC-2026-0261"
+        ],
+        "contexts": [
+          "[INC-2026-0142] Functions deployment issue in ukwest | rc=Deployment mit=Cleared cache and reindexed",
+          "[INC-2026-0122] Monitor ingestion backlog (switzerlandnorth) | rc=Dependency mit=Disabled faulty feature flag",
+          "[INC-2026-0004] AOAI inference pool throttling (southeastasia) | rc=Capacity mit=Cleared cache and reindexed",
+          "[INC-2026-0295] Storage config issue in uksouth | rc=Config mit=Disabled faulty feature flag",
+          "[INC-2026-0075] App Service 5xx after platform rollout (northeurope) | rc=Deployment mit=Disabled faulty feature flag",
+          "[INC-2026-0139] Entra ID certificate issue in japaneast | rc=Certificate mit=Applied hotfix",
+          "[INC-2026-0256] Front Door networking issue in westus | rc=Networking mit=Failed over to secondary region",
+          "[INC-2026-0261] Storage dependency issue in centralus | rc=Dependency mit=Scaled out capacity"
+        ],
+        "mode": "local"
+      },
+      "scores": {
+        "modeOk": true,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": true
+      }
+    },
+    {
+      "q": "List Sev1 incidents in the westus region involving Front Door",
+      "expected": {
+        "q": "List Sev1 incidents in the westus region involving Front Door",
+        "mode": "local",
+        "must_include_any": [
+          "Front Door"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0355, INC-2026-0123, INC-2026-0395, INC-2026-0038.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0355",
+          "INC-2026-0123",
+          "INC-2026-0395",
+          "INC-2026-0038",
+          "INC-2026-0039",
+          "INC-2026-0068",
+          "INC-2026-0198",
+          "INC-2026-0025"
+        ],
+        "contexts": [
+          "[INC-2026-0355] Front Door config issue in northcentralus | rc=Config mit=Rotated certificate",
+          "[INC-2026-0123] Monitor ingestion backlog (westus) | rc=Dependency mit=Applied hotfix",
+          "[INC-2026-0395] Front Door dependency issue in eastus | rc=Dependency mit=Rolled back deployment",
+          "[INC-2026-0038] Front Door TLS handshake failures after cert rotation (northeurope) | rc=Certificate mit=Rolled back deployment",
+          "[INC-2026-0039] Front Door TLS handshake failures after cert rotation (ukwest) | rc=Certificate mit=Restarted affected nodes",
+          "[INC-2026-0068] Blob storage elevated latency (westus) | rc=Networking mit=Updated DNS records",
+          "[INC-2026-0198] SQL DB networking issue in westus | rc=Networking mit=Updated DNS records",
+          "[INC-2026-0025] Front Door TLS handshake failures after cert rotation (northeurope) | rc=Certificate mit=Restarted affected nodes"
+        ],
+        "mode": "local"
+      },
+      "scores": {
+        "modeOk": true,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    },
+    {
+      "q": "Which team owns the Cosmos DB incidents in eastus?",
+      "expected": {
+        "q": "Which team owns the Cosmos DB incidents in eastus?",
+        "mode": "local",
+        "must_include_any": [
+          "Cosmos",
+          "team"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0022, INC-2026-0359, INC-2026-0131, INC-2026-0230.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0022",
+          "INC-2026-0359",
+          "INC-2026-0131",
+          "INC-2026-0230",
+          "INC-2026-0358",
+          "INC-2026-0145",
+          "INC-2026-0395",
+          "INC-2026-0016"
+        ],
+        "contexts": [
+          "[INC-2026-0022] Cosmos DB 429 throttling surge (australiaeast) | rc=Capacity mit=Disabled faulty feature flag",
+          "[INC-2026-0359] Cosmos DB deployment issue in southcentralus | rc=Deployment mit=Cleared cache and reindexed",
+          "[INC-2026-0131] Cosmos DB networking issue in australiaeast | rc=Networking mit=Tightened rate limits",
+          "[INC-2026-0230] Cosmos DB dependency issue in westus | rc=Dependency mit=Scaled out capacity",
+          "[INC-2026-0358] Cosmos DB config issue in southeastasia | rc=Config mit=Applied hotfix",
+          "[INC-2026-0145] Cosmos DB certificate issue in eastus | rc=Certificate mit=Disabled faulty feature flag",
+          "[INC-2026-0395] Front Door dependency issue in eastus | rc=Dependency mit=Rolled back deployment",
+          "[INC-2026-0016] Cosmos DB 429 throttling surge (australiaeast) | rc=Capacity mit=Failed over to secondary region"
+        ],
+        "mode": "local"
+      },
+      "scores": {
+        "modeOk": true,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    },
+    {
+      "q": "Show incidents assigned to the AOAI-Inference team",
+      "expected": {
+        "q": "Show incidents assigned to the AOAI-Inference team",
+        "mode": "local",
+        "must_include_any": [
+          "AOAI",
+          "Azure OpenAI"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0310, INC-2026-0009, INC-2026-0361.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0310",
+          "INC-2026-0009",
+          "INC-2026-0361"
+        ],
+        "contexts": [
+          "[INC-2026-0310] Azure OpenAI deployment issue in francecentral | rc=Deployment mit=Restarted affected nodes",
+          "[INC-2026-0009] AOAI inference pool throttling (westeurope) | rc=Capacity mit=Cleared cache and reindexed",
+          "[INC-2026-0361] Azure OpenAI deployment issue in westus | rc=Deployment mit=Restarted affected nodes"
+        ],
+        "mode": "local"
+      },
+      "scores": {
+        "modeOk": true,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    },
+    {
+      "q": "Pull the details for INC-2026-0137",
+      "expected": {
+        "q": "Pull the details for INC-2026-0137",
+        "mode": "local",
+        "must_include_any": [
+          "INC-2026-0137"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0137, INC-2026-0026, INC-2026-0159, INC-2026-0356.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0026",
+          "INC-2026-0159",
+          "INC-2026-0356",
+          "INC-2026-0390",
+          "INC-2026-0151",
+          "INC-2026-0031",
+          "INC-2026-0072",
+          "INC-2026-0230"
+        ],
+        "contexts": [
+          "[INC-2026-0026] Front Door TLS handshake failures after cert rotation (northeurope) | rc=Certificate mit=Updated DNS records",
+          "[INC-2026-0159] Storage code defect issue in northeurope | rc=Code Defect mit=Restarted affected nodes",
+          "[INC-2026-0356] AKS certificate issue in northcentralus | rc=Certificate mit=Updated DNS records",
+          "[INC-2026-0390] SQL DB dns issue in northeurope | rc=DNS mit=Disabled faulty feature flag",
+          "[INC-2026-0151] Networking config issue in germanywestcentral | rc=Config mit=Tightened rate limits",
+          "[INC-2026-0031] Front Door TLS handshake failures after cert rotation (southeastasia) | rc=Certificate mit=Updated DNS records",
+          "[INC-2026-0072] App Service 5xx after platform rollout (centralus) | rc=Deployment mit=Failed over to secondary region",
+          "[INC-2026-0230] Cosmos DB dependency issue in westus | rc=Dependency mit=Scaled out capacity"
+        ],
+        "mode": "local"
+      },
+      "scores": {
+        "modeOk": true,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": true
+      }
+    },
+    {
+      "q": "What were the top recurring themes across 2026 incidents?",
+      "expected": {
+        "q": "What were the top recurring themes across 2026 incidents?",
+        "mode": "global",
+        "must_include_any": [
+          "cluster",
+          "community",
+          "service",
+          "root cause"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0222, INC-2026-0195, INC-2026-0314, INC-2026-0392.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0222",
+          "INC-2026-0195",
+          "INC-2026-0314",
+          "INC-2026-0392",
+          "INC-2026-0133",
+          "INC-2026-0168",
+          "INC-2026-0322",
+          "INC-2026-0393",
+          "C-050",
+          "C-019",
+          "C-063"
+        ],
+        "contexts": [
+          "[INC-2026-0222] Networking security issue in westus3 | rc=Security mit=Rotated certificate",
+          "[INC-2026-0195] Networking security issue in eastus2 | rc=Security mit=Rolled back deployment",
+          "[INC-2026-0314] Networking security issue in westeurope | rc=Security mit=Applied hotfix",
+          "[INC-2026-0392] Networking security issue in australiaeast | rc=Security mit=Scaled out capacity",
+          "[INC-2026-0133] Networking deployment issue in australiaeast | rc=Deployment mit=Restarted affected nodes",
+          "[INC-2026-0168] Monitor capacity issue in ukwest | rc=Capacity mit=Restarted affected nodes",
+          "[INC-2026-0322] Networking security issue in swedencentral | rc=Security mit=Disabled faulty feature flag",
+          "[INC-2026-0393] Networking deployment issue in eastasia | rc=Deployment mit=Rolled back deployment",
+          "[C-050] Cluster of 5 incidents. Top services: Networking (5). Root causes: Security (5). Regions: eastus2 (1), westus3 (1), australiaeast (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 1043. Representative incidents: Networking security issue in eastus2; Networking security issue in westus3; Networking security issue in australiaeast.",
+          "[C-019] Cluster of 4 incidents. Top services: Monitor (3), API Management (1). Root causes: Capacity (3), Networking (1). Regions: germanywestcentral (1), ukwest (1), eastasia (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 774. Representative incidents: Monitor capacity issue in germanywestcentral; Monitor capacity issue in ukwest; Monitor capacity issue in eastasia.",
+          "[C-063] Cluster of 2 incidents. Top services: Networking (2). Root causes: Deployment (2). Regions: eastasia (1), australiaeast (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 3527. Representative incidents: Networking deployment issue in eastasia; Networking deployment issue in australiaeast."
+        ],
+        "mode": "drift"
+      },
+      "scores": {
+        "modeOk": false,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": true
+      }
+    },
+    {
+      "q": "Summarize the overall Azure OpenAI health in 2026",
+      "expected": {
+        "q": "Summarize the overall Azure OpenAI health in 2026",
+        "mode": "global",
+        "must_include_any": [
+          "Azure OpenAI",
+          "capacity",
+          "AOAI"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0006, INC-2026-0137, INC-2026-0361, INC-2026-0002.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0006",
+          "INC-2026-0137",
+          "INC-2026-0361",
+          "INC-2026-0002",
+          "INC-2026-0004",
+          "INC-2026-0005",
+          "INC-2026-0003",
+          "INC-2026-0007"
+        ],
+        "contexts": [
+          "[INC-2026-0006] AOAI inference pool throttling (japaneast) | rc=Capacity mit=Rolled back deployment",
+          "[INC-2026-0137] Azure OpenAI dns issue in westus3 | rc=DNS mit=Applied hotfix",
+          "[INC-2026-0361] Azure OpenAI deployment issue in westus | rc=Deployment mit=Restarted affected nodes",
+          "[INC-2026-0002] AOAI inference pool throttling (japaneast) | rc=Capacity mit=Cleared cache and reindexed",
+          "[INC-2026-0004] AOAI inference pool throttling (southeastasia) | rc=Capacity mit=Cleared cache and reindexed",
+          "[INC-2026-0005] AOAI inference pool throttling (francecentral) | rc=Capacity mit=Updated DNS records",
+          "[INC-2026-0003] AOAI inference pool throttling (uksouth) | rc=Capacity mit=Restarted affected nodes",
+          "[INC-2026-0007] AOAI inference pool throttling (westus2) | rc=Capacity mit=Cleared cache and reindexed"
+        ],
+        "mode": "local"
+      },
+      "scores": {
+        "modeOk": false,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    },
+    {
+      "q": "Give me an executive summary of certificate-related incidents",
+      "expected": {
+        "q": "Give me an executive summary of certificate-related incidents",
+        "mode": "global",
+        "must_include_any": [
+          "Certificate",
+          "cert"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0269, INC-2026-0340, INC-2026-0381, INC-2026-0030.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0269",
+          "INC-2026-0340",
+          "INC-2026-0381",
+          "INC-2026-0030",
+          "INC-2026-0039",
+          "INC-2026-0172",
+          "INC-2026-0181",
+          "INC-2026-0260"
+        ],
+        "contexts": [
+          "[INC-2026-0269] AKS certificate issue in eastus | rc=Certificate mit=Scaled out capacity",
+          "[INC-2026-0340] Storage certificate issue in ukwest | rc=Certificate mit=Tightened rate limits",
+          "[INC-2026-0381] Storage certificate issue in swedencentral | rc=Certificate mit=Rolled back deployment",
+          "[INC-2026-0030] Front Door TLS handshake failures after cert rotation (eastus) | rc=Certificate mit=Tightened rate limits",
+          "[INC-2026-0039] Front Door TLS handshake failures after cert rotation (ukwest) | rc=Certificate mit=Restarted affected nodes",
+          "[INC-2026-0172] Front Door certificate issue in eastasia | rc=Certificate mit=Disabled faulty feature flag",
+          "[INC-2026-0181] Functions certificate issue in ukwest | rc=Certificate mit=Rolled back deployment",
+          "[INC-2026-0260] SQL DB certificate issue in ukwest | rc=Certificate mit=Tightened rate limits"
+        ],
+        "mode": "local"
+      },
+      "scores": {
+        "modeOk": false,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": true
+      }
+    },
+    {
+      "q": "Which services saw the most capacity-related issues?",
+      "expected": {
+        "q": "Which services saw the most capacity-related issues?",
+        "mode": "global",
+        "must_include_any": [
+          "Capacity",
+          "capacity"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0020, INC-2026-0019, INC-2026-0015, INC-2026-0011.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0020",
+          "INC-2026-0019",
+          "INC-2026-0015",
+          "INC-2026-0011",
+          "INC-2026-0170",
+          "INC-2026-0004",
+          "INC-2026-0219",
+          "INC-2026-0343"
+        ],
+        "contexts": [
+          "[INC-2026-0020] Cosmos DB 429 throttling surge (eastasia) | rc=Capacity mit=Failed over to secondary region",
+          "[INC-2026-0019] Cosmos DB 429 throttling surge (northeurope) | rc=Capacity mit=Cleared cache and reindexed",
+          "[INC-2026-0015] Cosmos DB 429 throttling surge (switzerlandnorth) | rc=Capacity mit=Tightened rate limits",
+          "[INC-2026-0011] AOAI inference pool throttling (switzerlandnorth) | rc=Capacity mit=Cleared cache and reindexed",
+          "[INC-2026-0170] Azure OpenAI capacity issue in centralus | rc=Capacity mit=Restarted affected nodes",
+          "[INC-2026-0004] AOAI inference pool throttling (southeastasia) | rc=Capacity mit=Cleared cache and reindexed",
+          "[INC-2026-0219] Monitor capacity issue in germanywestcentral | rc=Capacity mit=Disabled faulty feature flag",
+          "[INC-2026-0343] AKS capacity issue in westus3 | rc=Capacity mit=Applied hotfix"
+        ],
+        "mode": "local"
+      },
+      "scores": {
+        "modeOk": false,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    },
+    {
+      "q": "Broad trends in DNS failures this year",
+      "expected": {
+        "q": "Broad trends in DNS failures this year",
+        "mode": "global",
+        "must_include_any": [
+          "DNS"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0214, INC-2026-0139, INC-2026-0376, INC-2026-0249.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0214",
+          "INC-2026-0139",
+          "INC-2026-0376",
+          "INC-2026-0249",
+          "INC-2026-0290",
+          "INC-2026-0169",
+          "C-043",
+          "C-016",
+          "C-033"
+        ],
+        "contexts": [
+          "[INC-2026-0214] Functions config issue in germanywestcentral | rc=Config mit=Rotated certificate",
+          "[INC-2026-0139] Entra ID certificate issue in japaneast | rc=Certificate mit=Applied hotfix",
+          "[INC-2026-0376] Functions config issue in germanywestcentral | rc=Config mit=Rolled back deployment",
+          "[INC-2026-0249] Entra ID certificate issue in swedencentral | rc=Certificate mit=Scaled out capacity",
+          "[INC-2026-0290] API Management dependency issue in westus3 | rc=Dependency mit=Restarted affected nodes",
+          "[INC-2026-0169] API Management dependency issue in australiaeast | rc=Dependency mit=Disabled faulty feature flag",
+          "[C-043] Cluster of 2 incidents. Top services: Entra ID (2). Root causes: Certificate (2). Regions: japaneast (1), swedencentral (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 584. Representative incidents: Entra ID certificate issue in japaneast; Entra ID certificate issue in swedencentral.",
+          "[C-016] Cluster of 2 incidents. Top services: API Management (2). Root causes: Dependency (2). Regions: australiaeast (1), westus3 (1). Highest severity in cluster: Sev3. Total impacted customers (approx): 293. Representative incidents: API Management dependency issue in australiaeast; API Management dependency issue in westus3.",
+          "[C-033] Cluster of 2 incidents. Top services: Functions (2). Root causes: Config (2). Regions: germanywestcentral (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 8231. Representative incidents: Functions config issue in germanywestcentral; Functions config issue in germanywestcentral."
+        ],
+        "mode": "drift"
+      },
+      "scores": {
+        "modeOk": false,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    },
+    {
+      "q": "What caused the March 2026 Front Door outage cluster?",
+      "expected": {
+        "q": "What caused the March 2026 Front Door outage cluster?",
+        "mode": "drift",
+        "must_include_any": [
+          "Front Door",
+          "Certificate",
+          "cert"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0361, INC-2026-0364, INC-2026-0133, INC-2026-0215.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0361",
+          "INC-2026-0364",
+          "INC-2026-0133",
+          "INC-2026-0215",
+          "INC-2026-0203",
+          "INC-2026-0135",
+          "INC-2026-0310",
+          "INC-2026-0235",
+          "C-020",
+          "C-054",
+          "C-063"
+        ],
+        "contexts": [
+          "[INC-2026-0361] Azure OpenAI deployment issue in westus | rc=Deployment mit=Restarted affected nodes",
+          "[INC-2026-0364] Front Door networking issue in westeurope | rc=Networking mit=Cleared cache and reindexed",
+          "[INC-2026-0133] Networking deployment issue in australiaeast | rc=Deployment mit=Restarted affected nodes",
+          "[INC-2026-0215] Monitor dns issue in germanywestcentral | rc=DNS mit=Failed over to secondary region",
+          "[INC-2026-0203] Monitor dns issue in centralus | rc=DNS mit=Rotated certificate",
+          "[INC-2026-0135] Azure OpenAI deployment issue in southeastasia | rc=Deployment mit=Failed over to secondary region",
+          "[INC-2026-0310] Azure OpenAI deployment issue in francecentral | rc=Deployment mit=Restarted affected nodes",
+          "[INC-2026-0235] Azure OpenAI deployment issue in centralus | rc=Deployment mit=Cleared cache and reindexed",
+          "[C-020] Cluster of 15 incidents. Top services: Front Door (8), Azure OpenAI (4), Monitor (3). Root causes: Networking (5), Deployment (4), Dependency (3). Regions: centralus (2), westeurope (2), francecentral (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 19683. Representative incidents: Front Door dependency issue in australiaeast; Monitor dns issue in centralus; Azure OpenAI deployment issue in southeastasia.",
+          "[C-054] Cluster of 2 incidents. Top services: Front Door (2). Root causes: Capacity (2). Regions: westeurope (1), southeastasia (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 4965. Representative incidents: Front Door capacity issue in westeurope; Front Door capacity issue in southeastasia.",
+          "[C-063] Cluster of 2 incidents. Top services: Networking (2). Root causes: Deployment (2). Regions: eastasia (1), australiaeast (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 3527. Representative incidents: Networking deployment issue in eastasia; Networking deployment issue in australiaeast."
+        ],
+        "mode": "drift"
+      },
+      "scores": {
+        "modeOk": true,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": true
+      }
+    },
+    {
+      "q": "Explain the January 2026 Azure OpenAI capacity storm",
+      "expected": {
+        "q": "Explain the January 2026 Azure OpenAI capacity storm",
+        "mode": "drift",
+        "must_include_any": [
+          "Azure OpenAI",
+          "Capacity",
+          "AOAI"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0275, INC-2026-0074, INC-2026-0150, INC-2026-0076.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0275",
+          "INC-2026-0074",
+          "INC-2026-0150",
+          "INC-2026-0076",
+          "INC-2026-0078",
+          "INC-2026-0353",
+          "INC-2026-0201",
+          "INC-2026-0072",
+          "C-051",
+          "C-008",
+          "C-027"
+        ],
+        "contexts": [
+          "[INC-2026-0275] AKS dns issue in centralus | rc=DNS mit=Applied hotfix",
+          "[INC-2026-0074] App Service 5xx after platform rollout (southeastasia) | rc=Deployment mit=Failed over to secondary region",
+          "[INC-2026-0150] Storage capacity issue in australiaeast | rc=Capacity mit=Tightened rate limits",
+          "[INC-2026-0076] App Service 5xx after platform rollout (westeurope) | rc=Deployment mit=Cleared cache and reindexed",
+          "[INC-2026-0078] App Service 5xx after platform rollout (westus) | rc=Deployment mit=Updated DNS records",
+          "[INC-2026-0353] AKS dns issue in southeastasia | rc=DNS mit=Scaled out capacity",
+          "[INC-2026-0201] Functions capacity issue in swedencentral | rc=Capacity mit=Cleared cache and reindexed",
+          "[INC-2026-0072] App Service 5xx after platform rollout (centralus) | rc=Deployment mit=Failed over to secondary region",
+          "[C-051] Cluster of 5 incidents. Top services: AKS (5). Root causes: DNS (5). Regions: centralus (1), germanywestcentral (1), southeastasia (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 2310. Representative incidents: AKS dns issue in centralus; AKS dns issue in germanywestcentral; AKS dns issue in southeastasia.",
+          "[C-008] Cluster of 14 incidents. Top services: App Service (13), Functions (1). Root causes: Deployment (13), Capacity (1). Regions: westeurope (3), eastus2 (1), eastasia (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 36954. Representative incidents: App Service deployment issue in eastus2; App Service 5xx after platform rollout (eastasia); App Service 5xx after platform rollout (northeurope).",
+          "[C-027] Cluster of 4 incidents. Top services: Storage (4). Root causes: Capacity (4). Regions: australiaeast (1), eastasia (1), westeurope (1). Highest severity in cluster: Sev2. Total impacted customers (approx): 2915. Representative incidents: Storage capacity issue in australiaeast; Storage capacity issue in eastasia; Storage capacity issue in westeurope."
+        ],
+        "mode": "drift"
+      },
+      "scores": {
+        "modeOk": true,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    },
+    {
+      "q": "Analyze the May 2026 AKS CrashLoopBackOff cascade",
+      "expected": {
+        "q": "Analyze the May 2026 AKS CrashLoopBackOff cascade",
+        "mode": "drift",
+        "must_include_any": [
+          "AKS",
+          "kubelet",
+          "Crash"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0284, INC-2026-0003, INC-2026-0014, INC-2026-0225.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0284",
+          "INC-2026-0003",
+          "INC-2026-0014",
+          "INC-2026-0225",
+          "INC-2026-0233",
+          "INC-2026-0143",
+          "INC-2026-0020",
+          "INC-2026-0009",
+          "C-014",
+          "C-030",
+          "C-010"
+        ],
+        "contexts": [
+          "[INC-2026-0284] Storage deployment issue in japaneast | rc=Deployment mit=Restarted affected nodes",
+          "[INC-2026-0003] AOAI inference pool throttling (uksouth) | rc=Capacity mit=Restarted affected nodes",
+          "[INC-2026-0014] AOAI inference pool throttling (southeastasia) | rc=Capacity mit=Tightened rate limits",
+          "[INC-2026-0225] SQL DB config issue in westus2 | rc=Config mit=Restarted affected nodes",
+          "[INC-2026-0233] Cosmos DB capacity issue in eastus2 | rc=Capacity mit=Rotated certificate",
+          "[INC-2026-0143] Azure OpenAI capacity issue in southcentralus | rc=Capacity mit=Tightened rate limits",
+          "[INC-2026-0020] Cosmos DB 429 throttling surge (eastasia) | rc=Capacity mit=Failed over to secondary region",
+          "[INC-2026-0009] AOAI inference pool throttling (westeurope) | rc=Capacity mit=Cleared cache and reindexed",
+          "[C-014] Cluster of 18 incidents. Top services: Azure OpenAI (17), SQL DB (1). Root causes: Capacity (17), Config (1). Regions: southeastasia (3), westus2 (3), westeurope (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 37251. Representative incidents: AOAI inference pool throttling (westeurope); AOAI inference pool throttling (southeastasia); AOAI inference pool throttling (southeastasia).",
+          "[C-030] Cluster of 17 incidents. Top services: Cosmos DB (14), Storage (3). Root causes: Capacity (14), Deployment (3). Regions: australiaeast (3), eastasia (2), switzerlandnorth (2). Highest severity in cluster: Sev1. Total impacted customers (approx): 27186. Representative incidents: Cosmos DB 429 throttling surge (westeurope); Cosmos DB 429 throttling surge (australiaeast); Cosmos DB 429 throttling surge (eastasia).",
+          "[C-010] Cluster of 9 incidents. Top services: Storage (9). Root causes: Code Defect (9). Regions: centralus (2), australiaeast (1), ukwest (1). Highest severity in cluster: Sev0. Total impacted customers (approx): 7955. Representative incidents: Storage code defect issue in australiaeast; Storage code defect issue in centralus; Storage code defect issue in ukwest."
+        ],
+        "mode": "drift"
+      },
+      "scores": {
+        "modeOk": true,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    },
+    {
+      "q": "What happened with APIM in November 2026?",
+      "expected": {
+        "q": "What happened with APIM in November 2026?",
+        "mode": "drift",
+        "must_include_any": [
+          "APIM",
+          "API Management",
+          "policy"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0113, INC-2026-0332, INC-2026-0054, INC-2026-0387.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0113",
+          "INC-2026-0332",
+          "INC-2026-0054",
+          "INC-2026-0387",
+          "INC-2026-0116",
+          "INC-2026-0356",
+          "INC-2026-0036",
+          "INC-2026-0353"
+        ],
+        "contexts": [
+          "[INC-2026-0113] APIM policy misconfiguration blocking requests (swedencentral) | rc=Config mit=Scaled out capacity",
+          "[INC-2026-0332] Monitor deployment issue in westeurope | rc=Deployment mit=Rolled back deployment",
+          "[INC-2026-0054] AKS kubelet CrashLoopBackOff after 1.31 upgrade (southeastasia) | rc=Code Defect mit=Scaled out capacity",
+          "[INC-2026-0387] App Service certificate issue in centralus | rc=Certificate mit=Scaled out capacity",
+          "[INC-2026-0116] APIM policy misconfiguration blocking requests (swedencentral) | rc=Config mit=Restarted affected nodes",
+          "[INC-2026-0356] AKS certificate issue in northcentralus | rc=Certificate mit=Updated DNS records",
+          "[INC-2026-0036] Front Door TLS handshake failures after cert rotation (northeurope) | rc=Certificate mit=Updated DNS records",
+          "[INC-2026-0353] AKS dns issue in southeastasia | rc=DNS mit=Scaled out capacity"
+        ],
+        "mode": "local"
+      },
+      "scores": {
+        "modeOk": false,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    },
+    {
+      "q": "Summarize the regional DNS storm in September 2026",
+      "expected": {
+        "q": "Summarize the regional DNS storm in September 2026",
+        "mode": "drift",
+        "must_include_any": [
+          "DNS",
+          "Networking"
+        ]
+      },
+      "actual": {
+        "answer": "## Summary\nBased on the retrieved evidence, a small set of recurring patterns drive the question. Key incidents: INC-2026-0270, INC-2026-0342, INC-2026-0394, INC-2026-0248.\n\n## Observations\n- Multiple incidents share a service + root cause.\n- Mitigations cluster around rollback, scale-out, and certificate rotation.\n\n## Likely Cause\nShared dependency or configuration change affecting the service.\n\n## Recommended Next Steps\n1. Review the cited incidents for common component signatures.\n2. Check deployment and config change windows aligned with the impact times.\n3. Verify mitigations were applied across all impacted regions.\n",
+        "citations": [
+          "INC-2026-0270",
+          "INC-2026-0342",
+          "INC-2026-0394",
+          "INC-2026-0248",
+          "INC-2026-0261",
+          "INC-2026-0271",
+          "INC-2026-0357",
+          "C-034",
+          "C-064",
+          "C-041"
+        ],
+        "contexts": [
+          "[INC-2026-0270] Storage dependency issue in eastus | rc=Dependency mit=Restarted affected nodes",
+          "[INC-2026-0342] API Management dns issue in ukwest | rc=DNS mit=Rolled back deployment",
+          "[INC-2026-0394] AKS config issue in ukwest | rc=Config mit=Restarted affected nodes",
+          "[INC-2026-0248] API Management dns issue in northcentralus | rc=DNS mit=Tightened rate limits",
+          "[INC-2026-0261] Storage dependency issue in centralus | rc=Dependency mit=Scaled out capacity",
+          "[INC-2026-0271] API Management dns issue in eastasia | rc=DNS mit=Updated DNS records",
+          "[INC-2026-0357] AKS config issue in southeastasia | rc=Config mit=Applied hotfix",
+          "[C-034] Cluster of 2 incidents. Top services: AKS (2). Root causes: Config (2). Regions: southeastasia (1), ukwest (1). Highest severity in cluster: Sev1. Total impacted customers (approx): 2040. Representative incidents: AKS config issue in southeastasia; AKS config issue in ukwest.",
+          "[C-064] Cluster of 2 incidents. Top services: Storage (2). Root causes: Dependency (2). Regions: eastus (1), centralus (1). Highest severity in cluster: Sev4. Total impacted customers (approx): 684. Representative incidents: Storage dependency issue in eastus; Storage dependency issue in centralus.",
+          "[C-041] Cluster of 3 incidents. Top services: API Management (3). Root causes: DNS (3). Regions: ukwest (1), eastasia (1), northcentralus (1). Highest severity in cluster: Sev0. Total impacted customers (approx): 3876. Representative incidents: API Management dns issue in ukwest; API Management dns issue in eastasia; API Management dns issue in northcentralus."
+        ],
+        "mode": "drift"
+      },
+      "scores": {
+        "modeOk": true,
+        "citations": true,
+        "mustInclude": true,
+        "mustAny": false
+      }
+    }
+  ]
+}

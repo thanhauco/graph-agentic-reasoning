@@ -38,6 +38,18 @@ def make_tools(store: AppState) -> dict[str, dict[str, Any]]:
             return retriever._incident_row(store.graph, incident_id)  # type: ignore[attr-defined]
         return None
 
+    def _related(incident_id: str, hops: int = 2, min_shared: int = 2, limit: int = 12) -> dict[str, Any]:
+        return retriever.related_incidents(store, incident_id, hops=hops, min_shared=min_shared, limit=limit)
+
+    def _compare(left: str, right: str, dimension: str = "service") -> dict[str, Any]:
+        return retriever.compare_entities(store, left, right, dimension=dimension)
+
+    def _path(src: str, dst: str, max_len: int = 6) -> dict[str, Any]:
+        return retriever.shortest_path_between(store, src, dst, max_len=max_len)
+
+    def _cooccur(anchor: str, dimension: str = "service", top: int = 5) -> dict[str, Any]:
+        return retriever.cooccurrence(store, anchor, dimension=dimension, top=top)
+
     return {
         "local_search": {
             "fn": _local,
@@ -69,8 +81,27 @@ def make_tools(store: AppState) -> dict[str, dict[str, Any]]:
             "description": "Fetch a single incident's full record by ID (e.g., INC-2026-0137).",
             "args": {"incident_id": "string"},
         },
+        "related_incidents": {
+            "fn": _related,
+            "description": "MULTI-HOP: from an anchor incident, traverse to its Service/Region/Team/RootCause nodes and return other incidents sharing >=min_shared of those dimensions, grouped by shared signature. Use for 'similar to', 'related to', 'like this', 'why does this keep happening'.",
+            "args": {"incident_id": "string", "hops": "int (default 2)", "min_shared": "int (default 2)", "limit": "int (default 12)"},
+        },
+        "compare_entities": {
+            "fn": _compare,
+            "description": "Side-by-side incident breakdown for two services / regions / teams. Use for 'compare X vs Y', 'difference between ...'.",
+            "args": {"left": "string", "right": "string", "dimension": "service|region|team|rootCauseCategory (default service)"},
+        },
+        "shortest_path": {
+            "fn": _path,
+            "description": "Shortest relational path between two KG nodes (Incident/Service/Region/Team). Use for 'how are X and Y connected', 'path between ...'.",
+            "args": {"src": "node id", "dst": "node id", "max_len": "int (default 6)"},
+        },
+        "cooccurrence": {
+            "fn": _cooccur,
+            "description": "Inside Louvain communities containing an anchor (service/region/cause), which peer services/root-causes/regions co-occur most? Use for 'what fails alongside X', 'common dependencies of X'.",
+            "args": {"anchor": "string", "dimension": "service|region|rootCause (default service)", "top": "int (default 5)"},
+        },
     }
-
 
 def describe_tools(tools: dict[str, dict[str, Any]]) -> str:
     lines = []

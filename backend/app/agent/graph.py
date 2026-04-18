@@ -85,7 +85,88 @@ def _plan_from_query(gq: GraphQuery) -> dict[str, Any]:
                 "Return the full record with citations.",
             ],
             "firstTool": {"name": "incident_lookup", "args": {"incident_id": gq.incidentId}},
+            "toolChain": [
+                {"name": "incident_lookup", "args": {"incident_id": gq.incidentId}},
+            ],
         }
+    # 1b. Multi-hop: anchored at an incident, find siblings via shared dims.
+    if gq.intent == "multi_hop":
+        anchor = gq.anchorId or gq.incidentId
+        chain: list[dict[str, Any]] = []
+        plan_steps: list[str] = []
+        if anchor:
+            chain.append({"name": "incident_lookup", "args": {"incident_id": anchor}})
+            chain.append({"name": "related_incidents",
+                          "args": {"incident_id": anchor, "hops": 2, "min_shared": 2, "limit": 12}})
+            plan_steps = [
+                f"Anchor on {anchor} and pull its service/region/team/root-cause nodes.",
+                "Traverse 2 hops to find OTHER incidents sharing >=2 of those dimensions.",
+                "Group related incidents by shared-dimension signature.",
+                "Explain the recurring pattern with citations.",
+            ]
+        else:
+            # No anchor yet — use filtered local_search to identify candidates, then multi-hop from top.
+            args = {"q": gq.question, "top_k": 5}
+            args.update(to_filters(gq))
+            chain.append({"name": "local_search", "args": args})
+            plan_steps = [
+                "No explicit anchor — run filtered local_search first.",
+                "Pick the top match as the anchor for multi-hop expansion.",
+                "Traverse shared service/root-cause dimensions.",
+            ]
+        return {"mode": "multi_hop", "plan": plan_steps, "firstTool": chain[0], "toolChain": chain}
+    # 1c. Compare two entities.
+    if gq.intent == "compare" and gq.compareLeft and gq.compareRight:
+        # Infer dimension: if both are services in vocab we pick service; else service default.
+        dim = "service"
+        args = {"left": gq.compareLeft, "right": gq.compareRight, "dimension": dim}
+        chain = [{"name": "compare_entities", "args": args}]
+        # Also pull co-occurrence for the left anchor so the answer can say "both share cluster C-X".
+        chain.append({"name": "cooccurrence", "args": {"anchor": gq.compareLeft, "top": 5}})
+        return {
+            "mode": "compare",
+            "plan": [
+                f"Break down incidents for {gq.compareLeft} and {gq.compareRight} side-by-side.",
+                "List shared root-causes and divergent patterns.",
+                "Surface communities where both appear.",
+            ],
+            "firstTool": chain[0],
+            "toolChain": chain,
+        }
+    # 1d. Path between two entities.
+    if gq.intent == "path" and gq.pathSrc and gq.pathDst:
+        args = {"src": gq.pathSrc, "dst": gq.pathDst, "max_len": 6}
+        return {
+            "mode": "path",
+            "plan": [
+                f"Find the shortest relational path between {gq.pathSrc} and {gq.pathDst}.",
+                "Report each hop with its relation.",
+                "Complement with incidents sitting on that path.",
+            ],
+            "firstTool": {"name": "shortest_path", "args": args},
+            "toolChain": [
+                {"name": "shortest_path", "args": args},
+                {"name": "cooccurrence", "args": {"anchor": gq.pathSrc, "top": 5}},
+            ],
+        }
+    # 1e. Co-occurrence / dependency question.
+    if gq.intent == "cooccur":
+        anchor = gq.service or gq.region or gq.rootCause or (gq.keywords[0] if gq.keywords else "")
+        if anchor:
+            return {
+                "mode": "cooccur",
+                "plan": [
+                    f"Find Louvain communities containing {anchor}.",
+                    "Count peer services, regions, and root-causes in those communities.",
+                    "Pair with filtered local_search for incident citations.",
+                ],
+                "firstTool": {"name": "cooccurrence", "args": {"anchor": anchor, "top": 5}},
+                "toolChain": [
+                    {"name": "cooccurrence", "args": {"anchor": anchor, "top": 5}},
+                    {"name": "local_search",
+                     "args": {"q": gq.question, "top_k": 6, **to_filters(gq)}},
+                ],
+            }
     # 2. Cluster / storm / cascade.
     if gq.intent == "cluster":
         args: dict[str, Any] = {"q": gq.question, "top_communities": 3, "top_k": 8}
@@ -97,9 +178,12 @@ def _plan_from_query(gq: GraphQuery) -> dict[str, Any]:
                 + ", ".join(f"{k}={v}" for k, v in to_filters(gq).items())
             )
         plan.append("Summarize shared root cause + mitigation.")
-        return {"mode": "drift", "plan": plan, "firstTool": {"name": "drift_search", "args": args}}
+        return {"mode": "drift", "plan": plan,
+                "firstTool": {"name": "drift_search", "args": args},
+                "toolChain": [{"name": "drift_search", "args": args}]}
     # 3. Summary / trend / executive overview.
     if gq.intent == "summarize":
+        args = {"q": gq.question, "top_k": 5}
         return {
             "mode": "global",
             "plan": [
@@ -107,10 +191,12 @@ def _plan_from_query(gq: GraphQuery) -> dict[str, Any]:
                 "Reduce into thematic observations.",
                 "Cite communities and anchor incidents.",
             ],
-            "firstTool": {"name": "global_search", "args": {"q": gq.question, "top_k": 5}},
+            "firstTool": {"name": "global_search", "args": args},
+            "toolChain": [{"name": "global_search", "args": args}],
         }
     # 4. Temporal-only filter (month/quarter with no service/region/cluster).
     if (gq.startIso or gq.endIso) and not (gq.service or gq.region or gq.rootCause or gq.team):
+        args = {"start": gq.startIso, "end": gq.endIso, "service": gq.service}
         return {
             "mode": "local",
             "plan": [
@@ -118,10 +204,8 @@ def _plan_from_query(gq: GraphQuery) -> dict[str, Any]:
                 "Rank by severity and impacted customers.",
                 "Summarize with citations.",
             ],
-            "firstTool": {
-                "name": "temporal_filter",
-                "args": {"start": gq.startIso, "end": gq.endIso, "service": gq.service},
-            },
+            "firstTool": {"name": "temporal_filter", "args": args},
+            "toolChain": [{"name": "temporal_filter", "args": args}],
         }
     # 5. Default: filtered local search.
     args = {"q": gq.question, "top_k": 10}
@@ -135,7 +219,9 @@ def _plan_from_query(gq: GraphQuery) -> dict[str, Any]:
         "Rank candidates with embedding similarity.",
         "Answer with inline incident citations.",
     ]
-    return {"mode": "local", "plan": plan, "firstTool": {"name": "local_search", "args": args}}
+    return {"mode": "local", "plan": plan,
+            "firstTool": {"name": "local_search", "args": args},
+            "toolChain": [{"name": "local_search", "args": args}]}
 
 
 def _heuristic_synthesis(user: str) -> str:
@@ -155,16 +241,106 @@ def _heuristic_synthesis(user: str) -> str:
     question_match = re.search(r"QUESTION:\s*(.+?)\n", user)
     question = question_match.group(1).strip() if question_match else ""
 
+    # ---- multi-hop / compare / path markers inserted by _evidence_text ----
+    related_groups = re.search(r"RELATED-GROUPS:\s*(.+)", user)
+    compare_line = re.search(r"COMPARE\s+(.+)", user)
+    path_line = re.search(r"PATH (?:length=\d+:|not found) .+", user)
+    cooccur_line = re.search(r"COOCCUR\s+(.+)", user)
+
     incs: list[dict[str, str]] = []
     comms: list[dict[str, str]] = []
+    anchor_id: str | None = None
+    anchor_match = re.search(r"^ANCHOR:\s*(INC-2026-\d{4})", user, re.MULTILINE)
+    if anchor_match:
+        anchor_id = anchor_match.group(1)
     for line in user.splitlines():
         mi = incident_re.search(line)
         if mi:
-            incs.append(mi.groupdict())
+            g = mi.groupdict()
+            incs.append(g)
             continue
         mc = comm_re.search(line)
         if mc:
             comms.append(mc.groupdict())
+
+    # ---- PATH answer ----
+    if path_line:
+        chain = path_line.group(0)
+        return (
+            f"## Summary\nThe knowledge graph connects the two entities in your question "
+            f"via the following relational path.\n\n## Path\n`{chain}`\n\n"
+            "## Interpretation\nEach hop is an explicit KG edge (hosted_in, owns, caused_by, "
+            "in_community). The path length is the minimum number of relationships required "
+            "to traverse from source to destination.\n"
+        )
+
+    # ---- COMPARE answer ----
+    if compare_line and not related_groups:
+        from collections import Counter as _C
+        left_rows = [i for i in incs[:5]]
+        right_rows = [i for i in incs[5:10]]
+        lines = [f"## Summary\n{compare_line.group(0).strip()}", "\n## Side-by-side incidents"]
+        if left_rows:
+            lines.append("### Left")
+            for i in left_rows:
+                lines.append(f"- [{i['id']}] Sev{i['sev']} {i['svc'].strip()}/{i['reg'].strip()} — {i['title'].strip()} (rc={i['rc'].strip()})")
+        if right_rows:
+            lines.append("### Right")
+            for i in right_rows:
+                lines.append(f"- [{i['id']}] Sev{i['sev']} {i['svc'].strip()}/{i['reg'].strip()} — {i['title'].strip()} (rc={i['rc'].strip()})")
+        lines.append("\n## Recommended Next Steps")
+        lines.append("1. Focus mitigation investment on the shared root-cause categories.")
+        lines.append("2. Verify whether divergent causes reflect genuinely different failure modes or gaps in tagging.")
+        return "\n".join(lines)
+
+    # ---- MULTI-HOP answer ----
+    if related_groups and anchor_id:
+        from collections import Counter as _C
+        rel_rows = [i for i in incs if i["id"] != anchor_id]
+        svcs = _C(i["svc"].strip() for i in rel_rows)
+        rcs = _C(i["rc"].strip() for i in rel_rows)
+        regs = _C(i["reg"].strip() for i in rel_rows)
+        anchor = next((i for i in incs if i["id"] == anchor_id), None)
+        lines = [f"## Summary"]
+        if anchor:
+            lines.append(
+                f"Anchor incident **[{anchor_id}]** (Sev{anchor['sev']} {anchor['svc'].strip()}/{anchor['reg'].strip()}, "
+                f"rc={anchor['rc'].strip()}) has **{len(rel_rows)}** related incidents in the KG "
+                "that share at least 2 of its {service, region, team, rootCause} dimensions."
+            )
+        lines.append("\n## Shared-signature groups")
+        lines.append(related_groups.group(1).strip())
+        lines.append("\n## Related incidents")
+        for i in rel_rows[:8]:
+            lines.append(
+                f"- [{i['id']}] Sev{i['sev']} {i['svc'].strip()}/{i['reg'].strip()} — "
+                f"{i['title'].strip()} (rc={i['rc'].strip()}, mit={i['mit'].strip()})"
+            )
+        if rcs:
+            top_rc = rcs.most_common(1)[0][0]
+            lines.append(f"\n## Pattern\nThe dominant shared failure mode is **{top_rc}** "
+                         f"(appears in {rcs[top_rc]} of {len(rel_rows)} related incidents).")
+        lines.append("\n## Recommended Next Steps")
+        if anchor:
+            lines.append(f"1. Treat {anchor_id} as an exemplar; apply its mitigation across the related group.")
+        if svcs:
+            lines.append(f"2. Inspect the most-affected service ({svcs.most_common(1)[0][0]}) for a systemic defect.")
+        lines.append("3. Add a correlation rule on the shared signature so future occurrences auto-link.")
+        return "\n".join(lines)
+
+    # ---- COOCCUR answer ----
+    if cooccur_line and not related_groups:
+        lines = [f"## Summary", cooccur_line.group(1).strip(), "\n## Community context"]
+        for c in comms[:3]:
+            summary = c["sum"].strip()
+            if len(summary) > 220:
+                summary = summary[:220] + "…"
+            lines.append(f"- [{c['id']}] {summary}")
+        if incs:
+            lines.append("\n## Citations")
+            for i in incs[:6]:
+                lines.append(f"- [{i['id']}] Sev{i['sev']} {i['svc'].strip()}/{i['reg'].strip()} — {i['title'].strip()}")
+        return "\n".join(lines)
 
     if not incs and not comms:
         ids = list(dict.fromkeys(re.findall(r"INC-2026-\d{4}", user)))
@@ -276,15 +452,79 @@ def _evidence_text(evidence: list[dict[str, Any]]) -> str:
         if not iid or iid in cited_ids:
             return None
         cited_ids.add(iid)
+        extra = ""
+        if inc.get("sharedWithAnchor"):
+            extra = f" shared={'+'.join(inc['sharedWithAnchor'])}"
         return (
             f"[{iid}] Sev{inc.get('severity')} {inc.get('service')}/{inc.get('region')} "
             f"— {inc.get('title')} | rc={inc.get('rootCauseCategory')} "
-            f"mit={inc.get('mitigation')} status={inc.get('status')}"
+            f"mit={inc.get('mitigation')} status={inc.get('status')}{extra}"
         )
 
     for ev in evidence:
         result = ev.get("result")
+        tool = ev.get("tool")
         if result is None:
+            continue
+        # related_incidents result.
+        if tool == "related_incidents" and isinstance(result, dict):
+            anchor = result.get("anchor") or {}
+            if anchor.get("incidentId"):
+                lines.append(f"ANCHOR: {anchor['incidentId']}")
+                anchor_line = _row(anchor)
+                if anchor_line:
+                    lines.append(anchor_line)
+            for inc in result.get("related", []) or []:
+                line = _row(inc)
+                if line:
+                    lines.append(line)
+            groups = result.get("groups") or {}
+            if groups:
+                lines.append("RELATED-GROUPS: " + "; ".join(
+                    f"{k}={','.join(v[:4])}" for k, v in groups.items()
+                ))
+            continue
+        # compare_entities result.
+        if tool == "compare_entities" and isinstance(result, dict):
+            L, R = result.get("left") or {}, result.get("right") or {}
+            lines.append(
+                f"COMPARE {L.get('value')}={L.get('total')} incidents "
+                f"rc={list(L.get('byRootCause', {}).keys())[:3]} "
+                f"VS {R.get('value')}={R.get('total')} incidents "
+                f"rc={list(R.get('byRootCause', {}).keys())[:3]} "
+                f"shared={result.get('sharedRootCauses')}"
+            )
+            for inc in (L.get("topIncidents") or []) + (R.get("topIncidents") or []):
+                line = _row(inc)
+                if line:
+                    lines.append(line)
+            continue
+        # shortest_path result.
+        if tool == "shortest_path" and isinstance(result, dict):
+            if result.get("found"):
+                steps = result.get("steps") or []
+                chain = " -> ".join(
+                    f"{s.get('fromLabel') or s['from']}[{s.get('fromType')}] -({s.get('relation')})-> "
+                    f"{s.get('toLabel') or s['to']}[{s.get('toType')}]"
+                    for s in steps
+                )
+                lines.append(f"PATH length={result.get('length')}: {chain}")
+            else:
+                lines.append(f"PATH not found between {result.get('src')} and {result.get('dst')}")
+            continue
+        # cooccurrence result.
+        if tool == "cooccurrence" and isinstance(result, dict):
+            lines.append(
+                f"COOCCUR anchor={result.get('anchor')} "
+                f"coServices={list(result.get('coServices', {}).items())[:5]} "
+                f"coRootCauses={list(result.get('coRootCauses', {}).items())[:5]}"
+            )
+            for c in result.get("communities", []) or []:
+                cid = c.get("communityId")
+                if not cid or cid in cited_ids:
+                    continue
+                cited_ids.add(cid)
+                lines.append(f"[{cid} size={c.get('size')}] {c.get('summary')}")
             continue
         # Shape A: list of incidents (temporal_filter).
         if isinstance(result, list):
@@ -311,7 +551,7 @@ def _evidence_text(evidence: list[dict[str, Any]]) -> str:
                     continue
                 cited_ids.add(cid)
                 lines.append(f"[{cid} size={c.get('size')}] {c.get('summary')}")
-    return "\n".join(lines[:30])
+    return "\n".join(lines[:40])
 
 
 def _collect_citations(evidence: list[dict[str, Any]]) -> list[str]:
@@ -323,7 +563,23 @@ def _collect_citations(evidence: list[dict[str, Any]]) -> list[str]:
 
     for ev in evidence:
         result = ev.get("result")
+        tool = ev.get("tool")
         if result is None:
+            continue
+        if tool == "related_incidents" and isinstance(result, dict):
+            anchor = result.get("anchor") or {}
+            _add(anchor.get("incidentId"))
+            for inc in result.get("related", []) or []:
+                _add(inc.get("incidentId"))
+            continue
+        if tool == "compare_entities" and isinstance(result, dict):
+            for side in ("left", "right"):
+                for inc in (result.get(side) or {}).get("topIncidents") or []:
+                    _add(inc.get("incidentId"))
+            continue
+        if tool == "cooccurrence" and isinstance(result, dict):
+            for c in result.get("communities") or []:
+                _add(c.get("communityId"))
             continue
         if isinstance(result, list):
             for inc in result:
@@ -380,39 +636,72 @@ async def run_agent(store: AppState, question: str) -> AsyncIterator[dict[str, A
     # 2. Initial tool call from planner
     evidence: list[dict[str, Any]] = []
     first_tool = plan.get("firstTool") or heur_plan["firstTool"]
+    tool_chain: list[dict[str, Any]] = list(plan.get("toolChain") or heur_plan.get("toolChain") or [first_tool])
+    has_llm = get_settings().has_azure_openai
 
-    for step in range(MAX_TOOL_STEPS):
-        tool_name = first_tool.get("name")
-        tool_args = first_tool.get("args") or {}
-        if tool_name not in tools:
-            break
-        yield _emit({"type": "tool_call", "step": step, "tool": tool_name, "args": tool_args})
-        try:
-            result = tool_registry.call_tool(tools, tool_name, tool_args)
-        except Exception as e:  # noqa: BLE001
-            result = {"error": str(e)}
-        evidence.append({"tool": tool_name, "args": tool_args, "result": result})
-        yield _emit({
-            "type": "tool_result",
-            "step": step,
-            "tool": tool_name,
-            "summary": _summarize_result(tool_name, result),
-        })
+    # Heuristic mode: execute the pre-baked chain deterministically.
+    if not has_llm:
+        for step, tool_call in enumerate(tool_chain[:MAX_TOOL_STEPS]):
+            tool_name = tool_call.get("name")
+            tool_args = dict(tool_call.get("args") or {})
+            if tool_name not in tools:
+                break
+            yield _emit({"type": "tool_call", "step": step, "tool": tool_name, "args": tool_args})
+            try:
+                result = tool_registry.call_tool(tools, tool_name, tool_args)
+            except Exception as e:  # noqa: BLE001
+                result = {"error": str(e)}
+            evidence.append({"tool": tool_name, "args": tool_args, "result": result})
+            yield _emit({
+                "type": "tool_result",
+                "step": step,
+                "tool": tool_name,
+                "summary": _summarize_result(tool_name, result),
+            })
+            # Auto-chain: if multi_hop but anchor was missing, promote top local_search hit.
+            if (gq.intent == "multi_hop" and tool_name == "local_search"
+                    and isinstance(result, dict) and result.get("incidents")
+                    and not any(tc.get("name") == "related_incidents" for tc in tool_chain)):
+                anchor = result["incidents"][0]["incidentId"]
+                tool_chain.append({
+                    "name": "related_incidents",
+                    "args": {"incident_id": anchor, "hops": 2, "min_shared": 2, "limit": 12},
+                })
+                yield _emit({"type": "thought", "step": step,
+                             "thought": f"Anchor selected from top hit: {anchor}."})
+    else:
+        for step in range(MAX_TOOL_STEPS):
+            tool_name = first_tool.get("name")
+            tool_args = first_tool.get("args") or {}
+            if tool_name not in tools:
+                break
+            yield _emit({"type": "tool_call", "step": step, "tool": tool_name, "args": tool_args})
+            try:
+                result = tool_registry.call_tool(tools, tool_name, tool_args)
+            except Exception as e:  # noqa: BLE001
+                result = {"error": str(e)}
+            evidence.append({"tool": tool_name, "args": tool_args, "result": result})
+            yield _emit({
+                "type": "tool_result",
+                "step": step,
+                "tool": tool_name,
+                "summary": _summarize_result(tool_name, result),
+            })
 
-        # Decide next action.
-        exec_prompt = prompts.EXECUTOR_SYSTEM.format(tools=tool_desc, evidence=_evidence_text(evidence) or "(none)")
-        decision_raw = _llm_chat(exec_prompt, question, max_tokens=220)
-        decision = _parse_json(decision_raw)
-        thought = decision.get("thought", "")
-        if thought:
-            yield _emit({"type": "thought", "step": step, "thought": thought})
-        if decision.get("action") == "answer":
-            break
-        nxt = decision.get("tool") or {}
-        if nxt.get("name") and nxt["name"] in tools:
-            first_tool = nxt
-        else:
-            break
+            # Decide next action.
+            exec_prompt = prompts.EXECUTOR_SYSTEM.format(tools=tool_desc, evidence=_evidence_text(evidence) or "(none)")
+            decision_raw = _llm_chat(exec_prompt, question, max_tokens=220)
+            decision = _parse_json(decision_raw)
+            thought = decision.get("thought", "")
+            if thought:
+                yield _emit({"type": "thought", "step": step, "thought": thought})
+            if decision.get("action") == "answer":
+                break
+            nxt = decision.get("tool") or {}
+            if nxt.get("name") and nxt["name"] in tools:
+                first_tool = nxt
+            else:
+                break
 
     citations = _collect_citations(evidence)
 
@@ -439,6 +728,25 @@ async def run_agent(store: AppState, question: str) -> AsyncIterator[dict[str, A
 
 
 def _summarize_result(tool_name: str, result: Any) -> str:
+    if tool_name == "related_incidents" and isinstance(result, dict):
+        n = len(result.get("related") or [])
+        anchor = (result.get("anchor") or {}).get("incidentId")
+        groups = result.get("groups") or {}
+        top_group = max(groups, key=lambda k: len(groups[k])) if groups else None
+        extra = f", top group={top_group}" if top_group else ""
+        return f"{n} related incidents from anchor {anchor}{extra}"
+    if tool_name == "compare_entities" and isinstance(result, dict):
+        L = (result.get("left") or {}).get("total", 0)
+        R = (result.get("right") or {}).get("total", 0)
+        shared = result.get("sharedRootCauses") or []
+        return f"{(result.get('left') or {}).get('value')}={L} vs {(result.get('right') or {}).get('value')}={R}, shared rc={shared}"
+    if tool_name == "shortest_path" and isinstance(result, dict):
+        if result.get("found"):
+            return f"path length={result.get('length')} ({len(result.get('steps') or [])} hops)"
+        return "no path"
+    if tool_name == "cooccurrence" and isinstance(result, dict):
+        return (f"{len(result.get('communities') or [])} communities contain {result.get('anchor')}; "
+                f"top co-services={list((result.get('coServices') or {}).keys())[:3]}")
     if isinstance(result, dict):
         incs = result.get("incidents") or []
         comms = result.get("communities") or []
