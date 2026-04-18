@@ -99,7 +99,20 @@ class RetrievalResult:
 
 # ---------- retrievers ----------
 
-def local_search(store: AppState, query: str, *, top_k: int = 10) -> RetrievalResult:
+def local_search(
+    store: AppState,
+    query: str,
+    *,
+    top_k: int = 10,
+    service: str | None = None,
+    region: str | None = None,
+    team: str | None = None,
+    rootCause: str | None = None,
+    status: str | None = None,
+    severity: int | None = None,
+    start: str | None = None,
+    end: str | None = None,
+) -> RetrievalResult:
     entity_hits = _match_entities(store, query)
     candidates: set[str] = set()
     for node in entity_hits:
@@ -108,6 +121,36 @@ def local_search(store: AppState, query: str, *, top_k: int = 10) -> RetrievalRe
                 candidates.add(u)
     if not candidates:
         candidates = {n for n, d in store.graph.nodes(data=True) if d.get("type") == "Incident"}
+
+    # Apply structured filters derived from the NL query.
+    def _keep(iid: str) -> bool:
+        d = store.graph.nodes[iid]
+        if service and d.get("service") != service:
+            return False
+        if region and d.get("region") != region:
+            return False
+        if team and d.get("team") != team:
+            return False
+        if rootCause and d.get("rootCauseCategory") != rootCause:
+            return False
+        if status and d.get("status") != status:
+            return False
+        if severity is not None and d.get("severity") != severity:
+            return False
+        created = d.get("createdAt") or ""
+        if start and created < start:
+            return False
+        if end and created >= end:
+            return False
+        return True
+
+    filtered = {iid for iid in candidates if _keep(iid)}
+    # If filters eliminate everything, relax entity-anchoring but keep filters.
+    if not filtered and any([service, region, team, rootCause, status, severity is not None, start, end]):
+        all_inc = {n for n, d in store.graph.nodes(data=True) if d.get("type") == "Incident"}
+        filtered = {iid for iid in all_inc if _keep(iid)}
+    if filtered:
+        candidates = filtered
 
     inc_ids = store.incident_ids
     inc_embeds = store.incident_embeddings

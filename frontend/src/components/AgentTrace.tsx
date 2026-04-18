@@ -12,6 +12,7 @@ import type { AgentEvent } from "@/lib/api";
 
 const STEP_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   session: { bg: "#eff6ff", border: "#2563eb", text: "#1e40af" },
+  graph_query: { bg: "#fef3c7", border: "#d97706", text: "#92400e" },
   plan: { bg: "#faf5ff", border: "#a855f7", text: "#6b21a8" },
   tool_call: { bg: "#ecfeff", border: "#0ea5e9", text: "#075985" },
   tool_result: { bg: "#ecfdf5", border: "#10b981", text: "#065f46" },
@@ -55,6 +56,10 @@ export default function AgentTrace({ events }: { events: AgentEvent[] }) {
         case "session":
           title = "Question";
           subtitle = ev.question.slice(0, 80);
+          break;
+        case "graph_query":
+          title = "Parsed graph query";
+          subtitle = ev.describe.slice(0, 120);
           break;
         case "plan":
           title = `Plan (${ev.mode})`;

@@ -94,6 +94,7 @@ export const api = {
 
 export type AgentEvent =
   | { type: "session"; sessionId: string; t: number; question: string }
+  | { type: "graph_query"; sessionId: string; t: number; query: Record<string, any>; describe: string }
   | { type: "plan"; sessionId: string; t: number; mode: string; steps: string[] }
   | { type: "tool_call"; sessionId: string; t: number; step: number; tool: string; args: any }
   | { type: "tool_result"; sessionId: string; t: number; step: number; tool: string; summary: string }
