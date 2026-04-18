@@ -116,18 +116,34 @@ export async function streamChat(
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
+  const findFrameEnd = (s: string): { idx: number; len: number } => {
+    // SSE frames may be separated by \n\n, \r\n\r\n, or \r\r.
+    const candidates = [
+      { sep: "\r\n\r\n", len: 4 },
+      { sep: "\n\n", len: 2 },
+      { sep: "\r\r", len: 2 },
+    ];
+    let best = { idx: -1, len: 0 };
+    for (const { sep, len } of candidates) {
+      const i = s.indexOf(sep);
+      if (i !== -1 && (best.idx === -1 || i < best.idx)) best = { idx: i, len };
+    }
+    return best;
+  };
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buf += decoder.decode(value, { stream: true });
-    let idx: number;
-    while ((idx = buf.indexOf("\n\n")) !== -1) {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { idx, len } = findFrameEnd(buf);
+      if (idx === -1) break;
       const block = buf.slice(0, idx);
-      buf = buf.slice(idx + 2);
+      buf = buf.slice(idx + len);
       const dataLines = block
-        .split("\n")
+        .split(/\r?\n/)
         .filter((l) => l.startsWith("data:"))
-        .map((l) => l.slice(5).trimStart());
+        .map((l) => l.slice(5).replace(/^ /, ""));
       if (!dataLines.length) continue;
       try {
         const parsed = JSON.parse(dataLines.join("\n")) as AgentEvent;
