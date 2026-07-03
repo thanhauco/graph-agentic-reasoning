@@ -26,6 +26,15 @@ def _client():
     )
 
 
+def _chat_client_and_model():
+    """Return (client, model) for chat. Prefer NVIDIA Build (OpenAI-compatible)."""
+    s = get_settings()
+    if getattr(s, "nvidia_api_key", ""):
+        from openai import OpenAI
+        return OpenAI(api_key=s.nvidia_api_key, base_url=s.nvidia_base_url), s.nvidia_model
+    return _client(), s.azure_openai_chat_deployment
+
+
 def embed_texts(texts: list[str], batch_size: int = 64) -> np.ndarray:
     s = get_settings()
     client = _client()
@@ -45,9 +54,9 @@ def chat(
     max_tokens: int = 800,
 ) -> str:
     s = get_settings()
-    client = _client()
+    client, model = _chat_client_and_model()
     resp = client.chat.completions.create(
-        model=s.azure_openai_chat_deployment,
+        model=model,
         temperature=temperature,
         max_tokens=max_tokens,
         messages=[
@@ -66,9 +75,9 @@ def stream_chat(
     max_tokens: int = 800,
 ) -> Iterable[str]:
     s = get_settings()
-    client = _client()
+    client, model = _chat_client_and_model()
     stream = client.chat.completions.create(
-        model=s.azure_openai_chat_deployment,
+        model=model,
         temperature=temperature,
         max_tokens=max_tokens,
         stream=True,

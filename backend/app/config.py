@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     azure_openai_chat_deployment: str = "gpt-4o"
     azure_openai_embedding_deployment: str = "text-embedding-3-large"
 
+    # NVIDIA Build (OpenAI-compatible) — used for chat when nvidia_api_key is set.
+    nvidia_api_key: str = ""
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_model: str = "z-ai/glm-5.2"
+
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     cors_origins: str = "http://localhost:5173,http://localhost:4173"
@@ -51,8 +56,12 @@ class Settings(BaseSettings):
         return Path(self.index_dir).resolve()
 
     @property
+    def has_nvidia(self) -> bool:
+        return bool(self.nvidia_api_key)
+
+    @property
     def has_azure_openai(self) -> bool:
-        return bool(self.azure_openai_endpoint and self.azure_openai_api_key)
+        return bool(self.azure_openai_endpoint and self.azure_openai_api_key) or self.has_nvidia
 
 
 @lru_cache(maxsize=1)
